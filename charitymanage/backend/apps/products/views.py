@@ -1,25 +1,25 @@
 from rest_framework import viewsets
-from rest_framework.permissions import AllowAny, IsAdminUser
-from django_filters.rest_framework import DjangoFilterBackend
-from .models import UnitOfMeasure, Product
-from .serializers import UnitOfMeasureSerializer, ProductSerializer
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from .models import Product, UnitOfMeasure
+from .serializers import ProductSerializer, UnitOfMeasureSerializer
+
+class ProductViewSet(viewsets.ModelViewSet):
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    
+    def get_queryset(self):
+        queryset = Product.objects.all()
+        event_id = self.request.query_params.get('event')
+        booth_id = self.request.query_params.get('booth')
+
+        if event_id:
+            queryset = queryset.filter(booth__event_id=event_id)
+        if booth_id:
+            queryset = queryset.filter(booth_id=booth_id)
+
+        return queryset
 
 class UnitOfMeasureViewSet(viewsets.ModelViewSet):
     queryset = UnitOfMeasure.objects.all()
     serializer_class = UnitOfMeasureSerializer
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [AllowAny()]
-        return [IsAdminUser()]
-
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['booth', 'is_available']
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [AllowAny()]
-        return [IsAdminUser()]
+    permission_classes = [IsAuthenticatedOrReadOnly]

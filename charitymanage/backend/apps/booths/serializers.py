@@ -1,17 +1,14 @@
 from rest_framework import serializers
 from .models import Booth, POSDevice
-from apps.events.serializers import EventSerializer
+
+class POSDeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = POSDevice
+        fields = '__all__'
 
 class BoothSerializer(serializers.ModelSerializer):
-    event_details = EventSerializer(source='event', read_only=True)
+    pos_devices = POSDeviceSerializer(many=True, read_only=True)
     
     class Meta:
         model = Booth
-        fields = '__all__'
-
-class POSDeviceSerializer(serializers.ModelSerializer):
-    booth_details = BoothSerializer(source='booth', read_only=True)
-    
-    class Meta:
-        model = POSDevice
         fields = '__all__'

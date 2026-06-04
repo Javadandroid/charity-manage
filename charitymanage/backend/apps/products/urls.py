@@ -4,7 +4,7 @@ from .views import UnitOfMeasureViewSet, ProductViewSet
 
 router = DefaultRouter()
 router.register(r'units', UnitOfMeasureViewSet)
-router.register(r'products', ProductViewSet)
+router.register(r'products', ProductViewSet, basename='product')
 
 urlpatterns = [
     path('', include(router.urls)),

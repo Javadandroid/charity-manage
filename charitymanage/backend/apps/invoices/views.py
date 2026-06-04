@@ -1,86 +1,61 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.db import transaction
 from .models import Invoice, InvoiceItem
 from apps.products.models import Product
-from .serializers import InvoiceSerializer, InvoiceItemSerializer
+from .serializers import InvoiceSerializer
 
 class InvoiceViewSet(viewsets.ModelViewSet):
-    queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
     
-    def get_permissions(self):
-        if self.action in ['create_from_cart', 'retrieve']:
-            return [AllowAny()]
-        return [IsAdminUser()]
+    def get_queryset(self):
+        queryset = Invoice.objects.all()
+        event_id = self.request.query_params.get('event')
+        status_param = self.request.query_params.get('status')
 
-    def perform_create(self, serializer):
-        if self.request.user.is_authenticated:
-            serializer.save(created_by=self.request.user)
-        else:
-            serializer.save()
+        if event_id:
+            queryset = queryset.filter(booth__event_id=event_id)
 
-    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+        if status_param == 'ready':
+            # Example logic: we just return all invoices for the kiosk right now
+            queryset = queryset.filter(is_paid=True)
+
+        return queryset
+
+    @action(detail=False, methods=['post'], url_path='checkout', permission_classes=[IsAuthenticatedOrReadOnly])
+    @transaction.atomic
     def checkout(self, request):
-        """ثبت سفارش کیوسک"""
-        cart = request.data.get('cart', [])
-        phone = request.data.get('customer_phone', '').strip()
-        customer_name = request.data.get('customer_name', 'کیوسک')
         booth_id = request.data.get('booth_id')
-        
-        if not cart:
-            return Response({'error': 'سبد خرید خالی است.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        try:
-            with transaction.atomic():
-                total_amount = 0
-                invoice = Invoice.objects.create(
-                    booth_id=booth_id,
-                    customer_name=customer_name,
-                    customer_phone=phone,
-                    created_by=request.user if request.user.is_authenticated else None,
-                    is_paid=False,  # پرداخت از طریق متد جداگانه یا POS انجام می‌شود
-                    total_amount=0,
-                )
-                
-                for item in cart:
-                    product_id = item.get('product_id')
-                    quantity = int(item.get('quantity', 1))
-                    if quantity > 0:
-                        product = Product.objects.get(id=product_id)
-                        price = product.price
-                        InvoiceItem.objects.create(
-                            invoice=invoice,
-                            product=product,
-                            quantity=quantity,
-                            price=price
-                        )
-                        total_amount += (price * quantity)
-                
-                invoice.total_amount = total_amount
-                invoice.save()
-                
-            serializer = self.get_serializer(invoice)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        customer_name = request.data.get('customer_name', 'مشتری عبوری')
+        items = request.data.get('items', [])
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def toggle_ready(self, request, pk=None):
-        """تغییر وضعیت آماده بودن فاکتور برای نوبت‌دهی"""
-        invoice = self.get_object()
-        invoice.is_ready = not invoice.is_ready
-        invoice.save()
+        if not booth_id or not items:
+            return Response({"detail": "شناسه غرفه و لیست محصولات الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
+
+        invoice = Invoice.objects.create(
+            booth_id=booth_id,
+            customer_name=customer_name,
+            created_by=request.user if request.user.is_authenticated else None
+        )
         
-        # در صورت آماده شدن، صدا زدن نوبت کیوسک
-        if invoice.is_ready:
-            from apps.kiosk.services import TTSService
-            tts_service = TTSService()
-            # این متد صوتی را می‌سازد و آدرسش را برمی‌گرداند
-            audio_url = tts_service.generate_invoice_audio(invoice.invoice_number)
-            return Response({'is_ready': invoice.is_ready, 'audio_url': audio_url})
+        for item in items:
+            product_id = item.get('product_id')
+            quantity = item.get('quantity', 1)
             
-        return Response({'is_ready': invoice.is_ready})
+            try:
+                product = Product.objects.get(pk=product_id)
+                InvoiceItem.objects.create(
+                    invoice=invoice,
+                    product=product,
+                    quantity=quantity,
+                    price=product.price
+                )
+            except Product.DoesNotExist:
+                continue
+                
+        invoice.update_total()
+        
+        return Response(InvoiceSerializer(invoice).data, status=status.HTTP_201_CREATED)
