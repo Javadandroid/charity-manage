@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#f8f9fa" />
+  <g transform="translate(120, 80)">
+    <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#6c757d" />
+    <rect x="10" y="10" width="140" height="100" rx="4" ry="4" fill="#e9ecef" />
+    <circle cx="80" cy="40" r="20" fill="#6c757d" />
+    <rect x="40" y="70" width="80" height="10" rx="2" ry="2" fill="#6c757d" />
+    <rect x="55" y="85" width="50" height="10" rx="2" ry="2" fill="#6c757d" />
+    <circle cx="140" cy="20" r="10" fill="#dc3545" />
+  </g>
+  <text x="200" y="230" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="#495057">رویداد</text>
+</svg>

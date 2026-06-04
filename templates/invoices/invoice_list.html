@@ -1,0 +1,522 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load crispy_forms_tags %}
+{% load persian_filters %}
+
+{% block content %}
+{% csrf_token %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-file-invoice-dollar me-2"></i> فاکتورها</h1>
+    
+    <div>
+        <a href="{% url 'invoice_create' %}" class="btn btn-success">
+            <i class="fas fa-plus me-1"></i> ایجاد فاکتور جدید
+        </a>
+        {% if user.is_staff %}
+        <a href="{% url 'invoices_delete_all' %}" class="btn btn-outline-danger ms-2">
+            <i class="fas fa-trash-alt me-1"></i> حذف کلی فاکتورها
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-light" id="filterHeader">
+        <h5 class="mb-0">
+            <button class="btn btn-link text-decoration-none d-flex align-items-center text-dark w-100 p-0 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+                <i class="fas fa-filter me-2"></i> فیلتر و جستجو
+                <i class="fas fa-chevron-down ms-auto"></i>
+            </button>
+        </h5>
+    </div>
+    <div id="filterCollapse" class="collapse" aria-labelledby="filterHeader">
+        <div class="card-body">
+        <form method="get" class="row g-3">
+            {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+            <!-- فیلترهای مخصوص ادمین -->
+            <div class="col-md-3">
+                <label class="form-label">شماره فاکتور</label>
+                <input type="text" name="invoice_number" class="form-control" placeholder="جستجو بر اساس شماره فاکتور" value="{{ request.GET.invoice_number|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">نام مشتری</label>
+                <input type="text" name="customer_name" class="form-control" placeholder="جستجو بر اساس نام مشتری" value="{{ request.GET.customer_name|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">رویداد</label>
+                <select name="event" class="form-select">
+                    <option value="">-- همه رویدادها --</option>
+                    {% for event_option in all_events %}
+                    <option value="{{ event_option.id }}" {% if request.GET.event|add:"0" == event_option.id %}selected{% endif %}>
+                        {{ event_option.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">غرفه</label>
+                <select name="booth" class="form-select">
+                    <option value="">-- همه غرفه‌ها --</option>
+                    {% for booth_option in all_booths %}
+                    <option value="{{ booth_option.id }}" {% if request.GET.booth|add:"0" == booth_option.id %}selected{% endif %}>
+                        {{ booth_option.name }} ({{ booth_option.event.name }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">وضعیت پرداخت</label>
+                <select name="is_paid" class="form-select">
+                    <option value="">-- همه --</option>
+                    <option value="1" {% if request.GET.is_paid == "1" %}selected{% endif %}>پرداخت شده</option>
+                    <option value="0" {% if request.GET.is_paid == "0" %}selected{% endif %}>پرداخت نشده</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">از تاریخ</label>
+                <input type="text" name="date_from" class="form-control persian-datepicker" dir="ltr" value="{{ request.GET.date_from|default:''|jalali_date }}">
+                <input type="hidden" name="date_from_hidden" class="date-hidden">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">تا تاریخ</label>
+                <input type="text" name="date_to" class="form-control persian-datepicker" dir="ltr" value="{{ request.GET.date_to|default:''|jalali_date }}">
+                <input type="hidden" name="date_to_hidden" class="date-hidden">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">مرتب‌سازی</label>
+                <select name="sort" class="form-select">
+                    <option value="-created_at" {% if request.GET.sort == "-created_at" or not request.GET.sort %}selected{% endif %}>جدیدترین</option>
+                    <option value="created_at" {% if request.GET.sort == "created_at" %}selected{% endif %}>قدیمی‌ترین</option>
+                    <option value="-total_amount" {% if request.GET.sort == "-total_amount" %}selected{% endif %}>بیشترین مبلغ</option>
+                    <option value="total_amount" {% if request.GET.sort == "total_amount" %}selected{% endif %}>کمترین مبلغ</option>
+                    <option value="customer_name" {% if request.GET.sort == "customer_name" %}selected{% endif %}>نام مشتری (A-Z)</option>
+                    <option value="-customer_name" {% if request.GET.sort == "-customer_name" %}selected{% endif %}>نام مشتری (Z-A)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">وضعیت تحویل</label>
+                <select name="is_delivered" class="form-select">
+                    <option value="">-- همه --</option>
+                    <option value="1" {% if request.GET.is_delivered == "1" %}selected{% endif %}>تحویل شده</option>
+                    <option value="0" {% if request.GET.is_delivered == "0" %}selected{% endif %}>تحویل نشده</option>
+                </select>
+            </div>
+            {% else %}
+            <!-- فیلترهای محدود برای کاربران عادی (فقط نام مشتری و وضعیت تحویل) -->
+            <div class="col-md-6">
+                <label class="form-label">نام مشتری</label>
+                <input type="text" name="customer_name" class="form-control" placeholder="جستجو بر اساس نام مشتری" value="{{ request.GET.customer_name|default:'' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">وضعیت تحویل</label>
+                <select name="is_delivered" class="form-select">
+                    <option value="">-- همه --</option>
+                    <option value="1" {% if request.GET.is_delivered == "1" %}selected{% endif %}>تحویل شده</option>
+                    <option value="0" {% if request.GET.is_delivered == "0" %}selected{% endif %}>تحویل نشده</option>
+                </select>
+            </div>
+            <!-- برای حفظ مرتب‌سازی پیش‌فرض -->
+            <input type="hidden" name="sort" value="-created_at">
+            {% endif %}
+            <div class="col-12 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search me-1"></i> جستجو
+                </button>
+                <a href="{% url 'invoice_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i> پاک کردن فیلترها
+                </a>
+            </div>
+        </form>
+        </div>
+    </div>
+</div>
+
+<!-- مدال تأیید تغییر وضعیت -->
+<div class="modal fade" id="confirmDeliveryModal" tabindex="-1" aria-labelledby="confirmDeliveryModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeliveryModalLabel">تأیید تغییر وضعیت تحویل</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="بستن"></button>
+            </div>
+            <div class="modal-body" id="confirmDeliveryModalBody">
+                آیا مطمئن هستید که می‌خواهید وضعیت تحویل همه محصولات این فاکتور را تغییر دهید؟
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-primary" id="confirmDeliveryBtn">بله، تغییر بده</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if invoices %}
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>وضعیت تحویل</th>
+                        <th>شماره فاکتور</th>
+                        <th>تاریخ</th>
+                        <th>نام مشتری</th>
+                        {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+                        <th>غرفه</th>
+                        <th>رویداد</th>
+                        {% endif %}
+                        <th>مبلغ کل</th>
+                        {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+                        <th>همت عالی</th>
+                        {% endif %}
+                        <th>وضعیت پرداخت</th>
+                        <th>نوبت‌دهی</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                    <tr data-invoice-id="{{ invoice.id }}">
+                        <td>
+                            {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+                            <div class="form-check form-switch delivery-toggle-container" data-invoice-id="{{ invoice.id }}">
+                                <input class="form-check-input delivery-toggle" type="checkbox" id="delivery-toggle-{{ invoice.id }}">
+                                <label class="form-check-label" for="delivery-toggle-{{ invoice.id }}">
+                                    <span class="delivery-status-text"><i class="fas fa-spinner fa-pulse"></i></span>
+                                </label>
+                            </div>
+                            {% else %}
+                            <span class="delivery-status-text-{{ invoice.id }}"><i class="fas fa-spinner fa-pulse"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>{{ invoice.invoice_number }}</td>
+                        <td>{{ invoice.created_at|jalali_date }}</td>
+                        <td>{{ invoice.customer_name }}</td>
+                        {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+                        <td>
+                            <a href="{% url 'booth_detail' invoice.booth.id %}">{{ invoice.booth.name }}</a>
+                        </td>
+                        <td>
+                            <a href="{% url 'event_detail' invoice.booth.event.id %}">{{ invoice.booth.event.name }}</a>
+                        </td>
+                        {% endif %}
+                        <td>{{ invoice.total_amount|floatformat:0|intcomma }} تومان</td>
+                        {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+                        <td>
+                            {% if invoice.donation_amount %}
+                            {{ invoice.donation_amount|floatformat:0|intcomma }} تومان
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>
+                            {% if invoice.is_paid %}
+                            <span class="badge bg-success">پرداخت شده</span>
+                            {% else %}
+                            <span class="badge bg-danger">پرداخت نشده</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+                            <button type="button" class="btn btn-sm btn-outline-warning nobat-btn" data-invoice-id="{{ invoice.id }}" title="ارسال به نوبت">
+                                <i class="fas fa-bell"></i>
+                            </button>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-sm btn-info" title="مشاهده">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+                                <a href="{% url 'invoice_update' invoice.id %}" class="btn btn-sm btn-secondary" title="ویرایش">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'invoice_delete' invoice.id %}" class="btn btn-sm btn-danger" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% endif %}
+                                <!-- دکمه PDF موقتا غیرفعال شده است
+                                <a href="{% url 'print_invoice' invoice.id %}" class="btn btn-sm btn-primary" target="_blank" title="پی‌دی‌اف">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                                -->
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- صفحه‌بندی -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <p class="text-muted">
+                نمایش {{ invoices.start_index }} تا {{ invoices.end_index }} از {{ total_invoices }} فاکتور
+                ({{ items_per_page }} فاکتور در هر صفحه)
+            </p>
+            
+            <nav aria-label="صفحه‌بندی">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if invoices.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&{{ query_string }}" aria-label="صفحه اول">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ invoices.previous_page_number }}&{{ query_string }}" aria-label="صفحه قبل">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" aria-label="صفحه اول">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" aria-label="صفحه قبل">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                
+                {% for num in invoices.paginator.page_range %}
+                    {% if invoices.number == num %}
+                    <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                    {% elif num > invoices.number|add:'-3' and num < invoices.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}&{{ query_string }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if invoices.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ invoices.next_page_number }}&{{ query_string }}" aria-label="صفحه بعد">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ invoices.paginator.num_pages }}&{{ query_string }}" aria-label="صفحه آخر">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="صفحه بعد">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="صفحه آخر">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    در حال حاضر هیچ فاکتوری وجود ندارد یا با معیارهای جستجوی شما مطابقت ندارد.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        //
+        // متغیرهای مورد نیاز برای مدال تأیید
+        let currentInvoiceId = null;
+        let setDeliveredValue = false;
+        const modalElement = document.getElementById('confirmDeliveryModal');
+        // تنظیمات سفارشی برای مدال بوت‌استرپ برای دسترسی‌پذیری بهتر
+        const confirmModal = new bootstrap.Modal(modalElement, {
+            keyboard: true,
+            focus: false // جلوگیری از انتقال خودکار فوکوس
+        });
+        
+        // افزودن یک event listener برای مدیریت فوکوس به محض نمایش مدال
+        modalElement.addEventListener('shown.bs.modal', function() {
+            // فوکوس را روی دکمه انصراف بگذارید که کم خطرتر است
+            document.querySelector('[data-bs-dismiss="modal"]').focus();
+            
+            // حذف ویژگی aria-hidden از مدال برای رفع مشکل دسترسی‌پذیری
+            modalElement.removeAttribute('aria-hidden');
+        });
+        
+        // اضافه کردن select2 به فیلترها
+        if ($.fn.select2) {
+            $('select[name="booth"]').select2({
+                placeholder: "انتخاب غرفه",
+                allowClear: true,
+                dir: "rtl"
+            });
+            
+            $('select[name="event"]').select2({
+                placeholder: "انتخاب رویداد",
+                allowClear: true,
+                dir: "rtl"
+            });
+        }
+        function initNobatButtons(scope){
+            (scope || document).querySelectorAll('.nobat-btn').forEach(function(btn){
+                if(btn._nobat_bound) return; btn._nobat_bound = true;
+                btn.addEventListener('click', async function(){
+                    try{
+                        const id = this.getAttribute('data-invoice-id');
+                        const fd = new FormData(); fd.append('invoice_id', id);
+                        const res = await fetch('/nobat/api/show/', {
+                            method:'POST', body: fd,
+                            headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken': document.querySelector('input[name=csrfmiddlewaretoken]')?.value || ''}
+                        });
+                        if(!res.ok){ alert('ارسال نوبت ناموفق بود'); return; }
+                        const js = await res.json();
+                        if(js && js.ok){
+                            // تغییر رنگ دکمه انتخاب‌شده
+                            document.querySelectorAll('.nobat-btn').forEach(function(b){ b.classList.remove('btn-warning'); b.classList.add('btn-outline-warning'); });
+                            this.classList.remove('btn-outline-warning'); this.classList.add('btn-warning');
+                        }
+                    }catch(e){ alert('خطا در ارتباط با سرور'); }
+                });
+            });
+        }
+        
+        function initDeliveryForContainers(containers){
+            containers.forEach(container => {
+                const invoiceId = container.dataset.invoiceId;
+                const checkbox = container.querySelector('.delivery-toggle');
+                const statusText = container.querySelector('.delivery-status-text');
+                fetch(`/invoices/${invoiceId}/toggle-all-delivery/`)
+                    .then(r => r.json())
+                    .then(data => { if (data.success) { checkbox.checked = data.all_delivered; updateDeliveryStatusText(statusText, data.all_delivered); }})
+                    .catch(() => { statusText.innerHTML = 'خطا در دریافت وضعیت'; });
+                checkbox.addEventListener('change', function(){
+                    const isChecked = this.checked;
+                    currentInvoiceId = invoiceId;
+                    setDeliveredValue = isChecked;
+                    if(!isChecked){
+                        document.getElementById('confirmDeliveryModalBody').textContent = 'آیا مطمئن هستید که می‌خواهید وضعیت تحویل همه محصولات این فاکتور را به «تحویل نشده» تغییر دهید؟';
+                        this.checked = true; confirmModal.show();
+                    } else {
+                        updateDeliveryStatus(invoiceId, true, false);
+                    }
+                });
+            });
+        }
+        // مقداردهی اولیه
+        initDeliveryForContainers(document.querySelectorAll('.delivery-toggle-container'));
+        initNobatButtons(document);
+        
+        // اتصال رویداد دکمه تأیید در مدال
+        document.getElementById('confirmDeliveryBtn').addEventListener('click', function() {
+            if (currentInvoiceId) {
+                updateDeliveryStatus(currentInvoiceId, setDeliveredValue, true);
+                confirmModal.hide();
+            }
+        });
+        
+        // تابع به‌روزرسانی وضعیت تحویل
+        function updateDeliveryStatus(invoiceId, setDelivered, confirmed) {
+            const container = document.querySelector(`.delivery-toggle-container[data-invoice-id="${invoiceId}"]`);
+            const checkbox = container.querySelector('.delivery-toggle');
+            const statusText = container.querySelector('.delivery-status-text');
+            
+            // نمایش وضعیت بارگذاری
+            statusText.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+            
+            // ارسال درخواست به سرور
+            const formData = new FormData();
+            formData.append('set_delivered', setDelivered);
+            formData.append('confirmed', confirmed);
+            
+            fetch(`/invoices/${invoiceId}/toggle-all-delivery/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('input[name=csrfmiddlewaretoken]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // به‌روزرسانی رابط کاربری
+                    checkbox.checked = data.all_delivered;
+                    updateDeliveryStatusText(statusText, data.all_delivered);
+                    
+                    // پیام موفقیت نمایش داده نمی‌شود (بنا به درخواست کاربر)
+                    // showToast(data.message, 'success');
+                } else if (data.require_confirmation) {
+                    // اگر نیاز به تأیید باشد (که معمولاً نباید به اینجا برسیم چون قبلاً چک کردیم)
+                    document.getElementById('confirmDeliveryModalBody').textContent = data.message;
+                    confirmModal.show();
+                } else {
+                    showToast('خطا در به‌روزرسانی وضعیت تحویل', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('خطا در به‌روزرسانی وضعیت تحویل:', error);
+                showToast('خطا در به‌روزرسانی وضعیت تحویل', 'danger');
+                updateDeliveryStatusText(statusText, checkbox.checked);
+            });
+        }
+        
+        // تابع به‌روزرسانی متن وضعیت تحویل
+        function updateDeliveryStatusText(element, isDelivered) {
+            if (isDelivered) {
+                element.innerHTML = '<span class="text-success">تحویل شده</span>';
+            } else {
+                element.innerHTML = '<span class="text-danger">تحویل نشده</span>';
+            }
+        }
+        
+        // تابع نمایش پیام
+        function showToast(message, type) {
+            // اگر از کتابخانه toastr استفاده می‌کنید (باید به پروژه اضافه شود)
+            if (typeof toastr !== 'undefined') {
+                toastr[type](message);
+            } else {
+                alert(message);
+            }
+        }
+        
+        // Polling افزایشی برای افزودن ردیف‌های جدید بدون رفرش (فقط در صفحه 1)
+        const isFirstPage = Number('{{ invoices.number }}') === 1;
+        if (isFirstPage) {
+            const tbody = document.querySelector('table.table tbody');
+            function getLastId(){
+                let maxId = 0;
+                tbody.querySelectorAll('tr[data-invoice-id]').forEach(tr => { const id = parseInt(tr.getAttribute('data-invoice-id'))||0; if(id>maxId) maxId=id; });
+                return maxId;
+            }
+            function currentQuery(){ return window.location.search.replace(/^\?/, ''); }
+            async function poll(){
+                const lastId = getLastId();
+                const qs = currentQuery();
+                const url = `/invoices/api/changes/?last_id=${lastId}` + (qs? `&${qs}`: '');
+                try{
+                    const res = await fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+                    if(!res.ok) return;
+                    const data = await res.json();
+                    if(data && data.count>0 && data.html){
+                        tbody.insertAdjacentHTML('afterbegin', data.html);
+                        // مقداردهی وضعیت تحویل برای ردیف‌های جدید
+                        const newContainers = tbody.querySelectorAll('.delivery-toggle-container');
+                        initDeliveryForContainers(Array.from(newContainers).slice(0, data.count));
+                        initNobatButtons(tbody);
+                    }
+                }catch(e){ /* نادیده گرفتن خطاهای موقت */ }
+            }
+            setInterval(poll, Number('{{ poll_seconds|default:10 }}') * 1000);
+        }
+    });
+</script>
+{% endblock %}

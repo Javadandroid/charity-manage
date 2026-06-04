@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'products:product_detail' product.id %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت
+    </a>
+    
+    <h1><i class="fas fa-trash-alt me-2"></i> حذف محصول</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i> هشدار</h5>
+            </div>
+            <div class="card-body">
+                <p class="lead">آیا از حذف محصول <strong>"{{ product.name }}"</strong> اطمینان دارید؟</p>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    این عملیات غیرقابل بازگشت است. سوابق فروش این محصول در فاکتورها باقی خواهد ماند، اما محصول دیگر در لیست محصولات قابل مشاهده نخواهد بود.
+                </div>
+                
+                <div class="d-flex mb-3">
+                    <div class="me-4"><strong>کد محصول:</strong></div>
+                    <div>{{ product.code }}</div>
+                </div>
+                <div class="d-flex mb-3">
+                    <div class="me-4"><strong>غرفه:</strong></div>
+                    <div>{{ product.booth.name }}</div>
+                </div>
+                <div class="d-flex mb-3">
+                    <div class="me-4"><strong>رویداد:</strong></div>
+                    <div>{{ product.booth.event.name }}</div>
+                </div>
+                <div class="d-flex mb-3">
+                    <div class="me-4"><strong>قیمت:</strong></div>
+                    <div>{{ product.price|floatformat:0|intcomma }} تومان</div>
+                </div>
+                <div class="d-flex mb-3">
+                    <div class="me-4"><strong>وضعیت:</strong></div>
+                    <div>
+                        {% if product.is_available %}
+                        <span class="badge bg-success">موجود</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">ناموجود</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="{% url 'products:product_detail' product.id %}" class="btn btn-secondary me-2">
+                            <i class="fas fa-times me-1"></i> انصراف
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-1"></i> تأیید حذف
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> اطلاعات تکمیلی</h5>
+            </div>
+            <div class="card-body">
+                <img src="{{ product.get_image_url }}" alt="{{ product.name }}" class="img-fluid rounded mb-3">
+                
+                <p><strong>تعداد فروش:</strong> {{ sales_count }}</p>
+                <p><strong>تاریخ ایجاد:</strong> {{ product.created_at|date:"Y/m/d H:i" }}</p>
+                <p><strong>آخرین بروزرسانی:</strong> {{ product.updated_at|date:"Y/m/d H:i" }}</p>
+                
+                <hr>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    اگر فقط می‌خواهید محصول را از دسترس خارج کنید، به جای حذف کامل، می‌توانید آن را به عنوان ناموجود علامت بزنید.
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'products:product_update' product.id %}" class="btn btn-primary">
+                        <i class="fas fa-edit me-1"></i> ویرایش محصول
+                    </a>
+                    {% if product.is_available %}
+                    <form method="post" action="{% url 'products:product_toggle_availability' product.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="is_available" value="false">
+                        <button type="submit" class="btn btn-warning w-100">
+                            <i class="fas fa-ban me-1"></i> ناموجود کردن
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

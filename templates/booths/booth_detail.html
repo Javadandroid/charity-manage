@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'booth_list' %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت به لیست غرفه‌ها
+    </a>
+    <div class="d-flex justify-content-between align-items-center">
+        <h1>{{ booth.name }}</h1>
+        <div class="btn-group">
+            {% if user.is_staff or user == booth.manager %}
+            <a href="{% url 'booth_update' booth.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> ویرایش
+            </a>
+            <a href="{% url 'booth_delete' booth.id %}" class="btn btn-outline-danger">
+                <i class="fas fa-trash me-1"></i> حذف
+            </a>
+            {% endif %}
+            <a href="{% url 'booth_dashboard' booth.id %}" class="btn btn-outline-success">
+                <i class="fas fa-chart-bar me-1"></i> داشبورد
+            </a>
+            <a href="{% url 'invoice_create_for_booth' booth.id %}" class="btn btn-outline-info">
+                <i class="fas fa-file-invoice-dollar me-1"></i> ثبت فاکتور
+            </a>
+            {% if user.is_staff or user == booth.manager %}
+            <a href="{% url 'pos_device_list' booth_id=booth.id %}" class="btn btn-outline-secondary">
+                <i class="fas fa-credit-card me-1"></i> مدیریت دستگاه‌های پوز
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        {% if not booth.is_active %}
+        <div class="alert alert-warning mb-4">
+            <i class="fas fa-exclamation-triangle me-2"></i> این غرفه در حال حاضر غیرفعال است.
+        </div>
+        {% endif %}
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <img src="{{ booth.get_image_url }}" class="img-fluid rounded" alt="{{ booth.name }}">
+                    </div>
+                    <div class="col-md-8">
+                        <p><strong><i class="fas fa-calendar-alt me-2"></i> رویداد:</strong> <a href="{% url 'event_detail' booth.event.id %}">{{ booth.event.name }}</a></p>
+                        <p><strong><i class="fas fa-user me-2"></i> مدیر:</strong> {{ booth.manager.get_full_name|default:booth.manager.username|default:"تعیین نشده" }}</p>
+                        <p><strong><i class="fas fa-info-circle me-2"></i> وضعیت:</strong> 
+                            {% if booth.is_active %}
+                            <span class="badge bg-success">فعال</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">غیرفعال</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <h5>توضیحات:</h5>
+                <p>{{ booth.description|linebreaks|default:"توضیحاتی وجود ندارد." }}</p>
+                
+                {% if booth.staff.all %}
+                <h5>کارکنان غرفه:</h5>
+                <ul>
+                    {% for staff in booth.staff.all %}
+                    <li>{{ staff.get_full_name|default:staff.username }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-shopping-basket me-2"></i> محصولات غرفه</h5>
+                {% if user.is_staff %}
+                <div>
+                    <a href="{% url 'products:product_create_for_booth' booth.id %}" class="btn btn-light btn-sm me-1">
+                        <i class="fas fa-plus me-1"></i> افزودن محصول
+                    </a>
+                    <a href="{% url 'products:product_bulk_upload' %}?booth={{ booth.id }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-file-upload me-1"></i> آپلود گروهی
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>کد</th>
+                                <th>نام محصول</th>
+                                <th>قیمت</th>
+                                <th>واحد</th>
+                                <th>وضعیت</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                            <tr>
+                                <td>{{ product.code }}</td>
+                                <td>{{ product.name }}</td>
+                                <td>{{ product.price|floatformat:0|intcomma }} تومان</td>
+                                <td>{{ product.unit.name|default:"-" }}</td>
+                                <td>
+                                    {% if product.is_available %}
+                                    <span class="badge bg-success">موجود</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">ناموجود</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'products:product_detail' product.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if user.is_staff %}
+                                    <a href="{% url 'products:product_update' product.id %}" class="btn btn-sm btn-secondary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p>هنوز هیچ محصولی برای این غرفه ثبت نشده است.</p>
+                {% if user.is_staff %}
+                <div class="text-center">
+                    <a href="{% url 'products:product_create_for_booth' booth.id %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> افزودن محصول جدید
+                    </a>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i> آمار غرفه</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <div>تعداد محصولات:</div>
+                    <strong>{{ stats.product_count }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <div>تعداد فاکتورها:</div>
+                    <strong>{{ stats.invoice_count }}</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <div>مجموع فروش:</div>
+                    <strong>{{ stats.total_sales|floatformat:0|intcomma }} تومان</strong>
+                </div>
+            </div>
+        </div>
+        
+
+    </div>
+</div>
+{% endblock %}

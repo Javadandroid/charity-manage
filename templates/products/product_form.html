@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if product %}{% url 'products:product_detail' product.id %}{% elif booth %}{% url 'booth_detail' booth.id %}{% else %}{% url 'products:product_list' %}{% endif %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت
+    </a>
+    
+    <h1>
+        {% if product %}
+        <i class="fas fa-edit me-2"></i> ویرایش محصول
+        {% else %}
+        <i class="fas fa-plus me-2"></i> ایجاد محصول جدید
+        {% endif %}
+    </h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">اطلاعات محصول</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.name|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.code|as_crispy_field }}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.price|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_unit">{{ form.unit.label }}</label>
+                                <div class="input-group">
+                                    {{ form.unit }}
+                                    <button type="button" class="btn btn-outline-secondary" id="add-new-unit-btn" data-bs-toggle="modal" data-bs-target="#add-unit-modal">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% if form.unit.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.unit.errors }}
+                                </div>
+                                {% endif %}
+                                {% if form.unit.help_text %}
+                                <small class="form-text text-muted">{{ form.unit.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if not booth %}
+                    <div class="row">
+                        <div class="col-md-12">
+                            {{ form.booth|as_crispy_field }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {{ form.description|as_crispy_field }}
+                    {{ form.image|as_crispy_field }}
+                    
+                    <div class="form-check mb-3">
+                        {{ form.is_available }}
+                        <label class="form-check-label" for="{{ form.is_available.id_for_label }}">
+                            آیا محصول موجود است؟
+                        </label>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> ذخیره
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> راهنما</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>نام محصول را به صورت واضح و گویا وارد کنید.</li>
+                    <li>کد محصول باید منحصر به فرد باشد.</li>
+                    <li>قیمت را به تومان وارد کنید.</li>
+                    <li>واحد اندازه‌گیری مناسب را انتخاب کنید (مثلاً عدد، کیلوگرم، بسته).</li>
+                    <li>اگر واحد مورد نظر شما در لیست نیست، با کلیک بر روی دکمه <i class="fas fa-plus"></i> واحد جدیدی اضافه کنید.</li>
+                    <li>اگر محصول آماده فروش است، آن را به عنوان موجود علامت بزنید.</li>
+                </ul>
+            </div>
+        </div>
+        
+        {% if booth %}
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-store me-2"></i> اطلاعات غرفه</h5>
+            </div>
+            <div class="card-body">
+                <h5>{{ booth.name }}</h5>
+                <p><i class="fas fa-calendar me-1"></i> رویداد: {{ booth.event.name }}</p>
+                <p><i class="fas fa-user me-1"></i> مدیر: {{ booth.manager.get_full_name|default:booth.manager.username|default:"تعیین نشده" }}</p>
+                <p><i class="fas fa-shopping-basket me-1"></i> تعداد محصولات فعلی: {{ booth.products.count }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- مودال افزودن واحد جدید -->
+<div class="modal fade" id="add-unit-modal" tabindex="-1" aria-labelledby="add-unit-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="add-unit-modal-label"><i class="fas fa-plus me-1"></i> افزودن واحد اندازه‌گیری جدید</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="unit-form">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="form-group mb-3">
+                                <label for="unit-name">نام واحد</label>
+                                <input type="text" class="form-control" id="unit-name" name="name" required>
+                                <div class="invalid-feedback" id="unit-name-error"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group mb-3">
+                                <label for="unit-symbol">نماد</label>
+                                <input type="text" class="form-control" id="unit-symbol" name="symbol" required>
+                                <div class="invalid-feedback" id="unit-symbol-error"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="form-errors" class="alert alert-danger" style="display: none;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-primary" id="save-unit-btn">
+                    <i class="fas fa-save me-1"></i> ذخیره
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/fa.js"></script>
+<script>
+    $(document).ready(function() {
+        // فعال‌سازی Select2 برای فیلد واحد با قابلیت جستجو
+        $("#id_unit").select2({
+            theme: "bootstrap-5",
+            language: "fa",
+            dir: "rtl",
+            placeholder: "واحد اندازه‌گیری را انتخاب یا جستجو کنید",
+            allowClear: true,
+            ajax: {
+                url: "{% url 'products:get_units_json' %}",
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term || '',
+                        page: params.page || 1
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
+                },
+                cache: true
+            }
+        });
+        
+        // ذخیره واحد جدید با Ajax
+        $("#save-unit-btn").click(function() {
+            var formData = $("#unit-form").serialize();
+            
+            // پاک کردن خطاهای قبلی
+            $("#unit-name-error, #unit-symbol-error").text("");
+            $("#form-errors").hide();
+            
+            $.ajax({
+                url: "{% url 'products:create_unit_ajax' %}",
+                type: "POST",
+                data: formData,
+                success: function(response) {
+                    if (response.success) {
+                        // اضافه کردن واحد جدید به لیست Select2
+                        var newOption = new Option(response.name, response.id, true, true);
+                        $("#id_unit").append(newOption).trigger('change');
+                        
+                        // بستن مودال و نمایش پیام موفقیت
+                        $("#add-unit-modal").modal('hide');
+                        toastr.success(response.message);
+                        
+                        // پاک کردن فرم
+                        $("#unit-form")[0].reset();
+                    } else {
+                        // نمایش خطاها
+                        if (response.errors) {
+                            $.each(response.errors, function(field, errors) {
+                                $("#unit-" + field + "-error").text(errors[0]);
+                            });
+                        } else {
+                            $("#form-errors").text(response.message).show();
+                        }
+                    }
+                },
+                error: function() {
+                    $("#form-errors").text("خطا در ارتباط با سرور").show();
+                }
+            });
+        });
+        
+        // پاک کردن فرم واحد هنگام باز شدن مودال
+        $('#add-unit-modal').on('show.bs.modal', function () {
+            $("#unit-form")[0].reset();
+            $("#unit-name-error, #unit-symbol-error").text("");
+            $("#form-errors").hide();
+        });
+    });
+</script>
+{% endblock %}

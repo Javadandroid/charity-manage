@@ -1,0 +1,28 @@
+# پکیج‌های اصلی
+Django==5.2
+django-crispy-forms==2.1
+crispy-bootstrap5==2024.2
+djangorestframework==3.15.0
+django-cors-headers==4.3.1
+
+# کتابخانه‌های کار با تصاویر و فایل‌ها
+Pillow==10.1.0
+
+# کتابخانه‌های گزارش‌گیری و نمودار
+matplotlib==3.8.2
+openpyxl==3.1.2  # برای ساخت فایل‌های Excel
+
+# کتابخانه‌های تاریخ و زمان
+jdatetime==4.1.1  # برای تقویم شمسی
+python-dateutil==2.8.2
+pytz==2023.3
+
+# ابزارهای دیتابیس 
+psycopg2-binary==2.9.11  # برای پشتیبانی از PostgreSQL
+
+# ابزارهای API و مستندسازی
+Markdown==3.5.1  # برای مستندسازی API
+django-filter==24.1  # برای فیلتر کردن در API
+pyserial==3.5
+persianttsfarsi==0.1.0
+azure-cognitiveservices-speech==1.38.0

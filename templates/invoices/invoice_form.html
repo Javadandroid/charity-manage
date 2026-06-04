@@ -1,0 +1,1069 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+{% load persian_filters %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if invoice %}{% url 'invoice_detail' invoice.id %}{% elif booth %}{% url 'booth_detail' booth.id %}{% else %}{% url 'invoice_list' %}{% endif %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت
+    </a>
+    
+    <h1>
+        {% if invoice %}
+        <i class="fas fa-edit me-2"></i> ویرایش فاکتور
+        {% else %}
+        <i class="fas fa-plus me-2"></i> ایجاد فاکتور جدید
+        {% endif %}
+    </h1>
+    
+    {% if booth %}
+    <p class="text-muted">غرفه: {{ booth.name }} | رویداد: {{ booth.event.name }}</p>
+    {% endif %}
+</div>
+
+<form method="post" id="invoice-form">
+    {% csrf_token %}
+    <!-- ورودی مخفی برای محصولات فاکتور -->
+    <input type="hidden" id="invoice_items" name="invoice_items" value="">
+    
+    <!-- تخفیف پیش‌فرض که برای اطمینان از اینکه NOT NULL خطا ندهد -->
+    <input type="hidden" id="fail_safe_discount" name="discount_amount" value="0">
+    
+    {% if invoice and invoice.booth %}
+    <!-- ورودی مخفی برای غرفه در حالت ویرایش -->
+    <input type="hidden" name="booth" value="{{ invoice.booth.id }}">    
+    {% endif %}
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">اطلاعات فاکتور</h5>
+        </div>
+        <div class="card-body">
+            <!-- نام مشتری و شماره موبایل در یک ردیف -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    {{ form.customer_name|as_crispy_field }}
+                </div>
+                <div class="col-md-6">
+                    {{ form.customer_phone|as_crispy_field }}
+                </div>
+            </div>
+            
+            <!-- توضیحات در یک ردیف -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    {{ form.description|as_crispy_field }}
+                </div>
+            </div>
+            
+            <!-- درصد تخفیف و همت عالی در یک ردیف -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    {{ form.discount_amount|as_crispy_field }}
+                </div>
+                <div class="col-md-6">
+                    {{ form.donation_amount|as_crispy_field }}
+                </div>
+            </div>
+            
+            <!-- روش پرداخت در یک ردیف -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    {{ form.payment_method|as_crispy_field }}
+                </div>
+            </div>
+            
+            <!-- غرفه در یک ردیف (اگر غرفه انتخاب نشده باشد) -->
+            <!-- {% if not booth %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    {{ form.booth|as_crispy_field }}
+                    <input type="hidden" name="booth" value="{{ booth.id }}">
+                </div>
+            </div>
+            {% endif %} -->
+
+            {% if request.user.is_staff or request.user.is_superuser %}
+                {{ form.booth|as_crispy_field }}
+            {% else %}
+                {{ form.booth|as_crispy_field }}
+                <input type="hidden" name="booth" id="hidden_booth_input" value="">
+                <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    var boothSelect = document.getElementById("id_booth");
+                    var boothHidden = document.getElementById("hidden_booth_input");
+                    if (boothSelect && boothHidden) {
+                        boothHidden.value = boothSelect.value;
+                        boothSelect.disabled = true;
+                    }
+                });
+                </script>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4" id="invoice-items">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">اقلام فاکتور</h5>
+        </div>
+        <div class="card-body">
+            <input type="hidden" name="items-TOTAL_FORMS" id="id_items-TOTAL_FORMS" value="0">
+            <input type="hidden" name="items-INITIAL_FORMS" id="id_items-INITIAL_FORMS" value="0">
+            <input type="hidden" name="items-MIN_NUM_FORMS" id="id_items-MIN_NUM_FORMS" value="0">
+            <input type="hidden" name="items-MAX_NUM_FORMS" id="id_items-MAX_NUM_FORMS" value="1000">
+            
+            <!-- ناحیه نمایش محصولات به صورت تایل -->
+            <div class="product-tiles-container mb-4">
+                <div id="product-tiles" class="row g-3">
+                    <!-- اینجا محصولات به صورت تایل لود می‌شوند -->
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">در حال بارگذاری...</span>
+                        </div>
+                        <p class="mt-2">در حال بارگذاری محصولات...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <h5 class="border-bottom pb-2 mb-3">اقلام انتخاب شده</h5>
+            <div id="invoice-items-container" class="invoice-items-container">
+                <!-- اقلام فاکتور اینجا با جاوااسکریپت اضافه می‌شوند -->
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-8 offset-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row mb-2">
+                                <div class="col-md-6 text-end">جمع کل:</div>
+                                <div class="col-md-6 text-start" id="subtotal">0 تومان</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-md-6 text-end">تخفیف:</div>
+                                <div class="col-md-6 text-start" id="discount">0 تومان</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-md-6 text-end">همت عالی:</div>
+                                <div class="col-md-6 text-start" id="donation">0 تومان</div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-md-6 text-end"><strong>مبلغ نهایی:</strong></div>
+                                <div class="col-md-6 text-start"><strong id="invoice-total">0 تومان</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-12 text-end mt-4">
+        <button type="submit" id="submit-invoice-button" class="btn btn-primary btn-lg">
+            <i class="fas fa-save me-1"></i> ثبت فاکتور
+        </button>
+    </div>
+    <!-- Modal for error messages -->
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title" id="errorModalLabel">خطا</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="بستن"></button>
+          </div>
+          <div class="modal-body" id="errorModalBody">
+            <!-- پیام خطا اینجا قرار می‌گیرد -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+          </div>
+        </div>
+      </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/invoice_form.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // تعریف متغیرهای عمومی
+    let canEditPrices = false;  // پیش‌فرض: عدم اجازه ویرایش قیمت
+    {% if can_edit_prices %}
+        canEditPrices = true;  // فقط برای ادمین‌ها فعال می‌شود
+    {% endif %}
+    
+    // آرایه برای نگهداری محصولات انتخاب شده
+    let selectedProducts = [];
+    
+    // در حالت ویرایش، محصولات موجود در فاکتور را یکبار بارگذاری کن
+    {% if is_update and invoice.items.all %}
+        
+        {% for item in invoice.items.all %}
+            selectedProducts.push({
+                product_id: parseInt("{{ item.product.id }}"),
+                name: "{{ item.product.name }}",
+                price: parseInt("{{ item.price }}"),
+                quantity: parseInt("{{ item.quantity }}"),
+                image: "{% if item.product.image %}{{ item.product.image.url }}{% else %}/static/images/placeholders/product-placeholder.svg{% endif %}"
+            });
+            
+        {% endfor %}
+        
+        
+    {% endif %}
+    
+    // به محض بارگذاری صفحه این تابع اجرا می‌شود
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        
+        // اضافه کردن رویداد ارسال فرم برای بررسی مقدار تخفیف
+        document.getElementById('invoice-form').addEventListener('submit', function(event) {
+            
+            
+            // دریافت فیلد تخفیف
+            const discountField = document.getElementById('{{ form.discount_amount.id_for_label }}');
+            
+            // بررسی و تنظیم مقدار پیش‌فرض برای تخفیف
+            if (discountField) {
+                if (!discountField.value || discountField.value.trim() === '') {
+                    
+                    discountField.value = '0';
+                }
+                
+                
+            }
+            
+            // بررسی ارسال شناسه غرفه
+            const boothField = document.getElementById('id_booth');
+            if (boothField) {
+                console.log(boothField)
+            }
+        });
+        
+        // فعال‌سازی Select2 برای فیلدهای انتخاب
+        {% if not booth %}
+        const boothSelect = document.getElementById('id_booth');
+        if (boothSelect) {
+            
+            $(boothSelect).select2({
+                placeholder: 'غرفه را انتخاب کنید',
+                allowClear: false,
+                dir: 'rtl'
+            });
+            
+            // تغییر غرفه، محصولات متناسب را بارگذاری می‌کند
+            $(boothSelect).on('change', function() {
+                const selectedBoothId = $(this).val();
+                
+                if (selectedBoothId) {
+                    loadProductTiles(selectedBoothId);
+                } else {
+                    
+                }
+            });
+            
+            // اگر غرفه‌ای از قبل انتخاب شده است
+            if (boothSelect.value) {
+                
+                loadProductTiles(boothSelect.value);
+            }
+            // اگر فقط یک گزینه وجود دارد، آن را انتخاب کنید
+            else if (boothSelect.options && boothSelect.options.length === 2) { // گزینه خالی + یک گزینه واقعی
+                boothSelect.selectedIndex = 1; // انتخاب اولین گزینه واقعی
+                $(boothSelect).trigger('change');
+                
+            }
+            // اگر بیش از یک گزینه وجود دارد، اولین گزینه را انتخاب کنید
+            else if (boothSelect.options && boothSelect.options.length > 2) {
+                // برای اطمینان از اینکه select2 کاملاً بارگذاری شده
+                setTimeout(function() {
+                    boothSelect.selectedIndex = 1; // انتخاب اولین گزینه واقعی
+                    $(boothSelect).trigger('change');
+                    console.log("اولین غرفه به طور خودکار انتخاب شد");
+                }, 100);
+            } else {
+                console.warn("هیچ غرفه‌ای برای انتخاب وجود ندارد");
+            }
+        } else {
+            console.error("فیلد انتخاب غرفه پیدا نشد!");
+        }
+        {% endif %}
+        
+        // اتصال رویدادهای تغییر به فیلدهای تخفیف و همت عالی
+        $('#{{ form.discount_amount.id_for_label }}, #{{ form.donation_amount.id_for_label }}').on('input', function() {
+            calculateInvoiceTotal();
+        });
+        
+        // تنظیم رویدادهای دکمه‌های روش پرداخت
+        setupPaymentMethods();
+        
+        // به‌روزرسانی گزینه‌های محصول در صورت نیاز
+        {% if not invoice and booth %}
+        console.log("بارگذاری محصولات برای غرفه مشخص شده در حالت ایجاد: {{ booth.id }}");
+        loadProductTiles({{ booth.id }});
+        {% elif invoice %}
+        // در حالت ویرایش، محصولات را بارگذاری کن و سپس محصولات فاکتور را اضافه کن
+        
+        loadProductTiles({{ invoice.booth.id }}, function() {
+            
+            // وقتی در ابتدای اسکریپت آیتم‌ها را بارگذاری کرده‌ایم، نیاز به اضافه کردن دوباره آن‌ها نیست
+            // فقط به‌روزرسانی وضعیت تایل‌ها را انجام می‌دهیم
+            updateProductTileSelections();
+            updateInvoiceItems();
+            calculateInvoiceTotal();
+        });
+        {% endif %}
+    });
+    
+    // بارگذاری محصولات به صورت تایل
+    function loadProductTiles(boothId, callback) {
+        if (!boothId) return;
+        
+        const tilesContainer = document.getElementById('product-tiles');
+        
+        // نمایش لودینگ
+        tilesContainer.innerHTML = `
+            <div class="text-center py-5 col-12">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">در حال بارگذاری...</span>
+                </div>
+                <p class="mt-2">در حال بارگذاری محصولات...</p>
+            </div>
+        `;
+        
+        // دریافت محصولات از API
+        fetch(`/api/booths/${boothId}/products/`)
+            .then(response => response.json())
+            .then(data => {
+                // پاک کردن لودینگ
+                tilesContainer.innerHTML = '';
+                
+                if (data.length === 0) {
+                    tilesContainer.innerHTML = `
+                        <div class="col-12 text-center py-5">
+                            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                            <p>هیچ محصولی برای این غرفه یافت نشد.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // ایجاد تایل برای هر محصول
+                data.forEach(product => {
+                    const productTile = createProductTile(product);
+                    tilesContainer.appendChild(productTile);
+                });
+                
+                // فراخوانی callback در صورت وجود
+                if (typeof callback === 'function') {
+                    callback();
+                }
+                
+                // به‌روزرسانی وضعیت انتخاب محصولات
+                updateProductTileSelections();
+            })
+            .catch(error => {
+                
+                tilesContainer.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <p>خطا در بارگذاری محصولات. لطفاً صفحه را مجدداً بارگذاری کنید.</p>
+                    </div>
+                `;
+            });
+    }
+    
+    // ایجاد المان تایل محصول
+    function createProductTile(product) {
+        const isSelected = selectedProducts.some(item => item.product_id === product.id);
+        const col = document.createElement('div');
+        col.className = 'col-lg-3 col-md-4 col-6 mb-4';
+        
+        // متغیر discountBadge حذف شده است چون استفاده نمی‌شود
+        
+        col.innerHTML = `
+            <div class="product-tile ${isSelected ? 'selected' : ''}" data-product-id="${product.id}">
+                <div class="product-tile-header">
+                    <div class="product-image">
+                        <img src="${product.image_url || product.image || '/static/images/placeholders/product-placeholder.svg'}" alt="${product.name}">
+                    </div>
+                </div>
+                <div class="product-tile-body">
+                    <div class="product-title">${product.name}</div>
+                    <div class="product-description">${product.description || ''}</div>
+                    <div class="product-price">${persianNumber(product.price)} تومان</div>
+                    
+                    ${isSelected ? `
+                        <div class="quantity-control">
+                            <button type="button" class="quantity-minus ${getSelectedProductQuantity(product.id) === 1 ? 'trash' : ''}">
+                                <i class="fas ${getSelectedProductQuantity(product.id) === 1 ? 'fa-trash-alt' : 'fa-minus'}"></i>
+                            </button>
+                            <input type="text" class="form-control mx-2" style="width: 60px" value="${persianNumber(getSelectedProductQuantity(product.id))}">
+                            <button type="button" class="quantity-plus">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    ` : `
+                        <button type="button" class="btn btn-danger w-100 mt-2 add-to-cart" data-product-id="${product.id}" data-product-price="${product.price}">
+                            <i class="fas fa-cart-plus me-1"></i> افزودن
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+        
+        // اتصال رویدادهای کلیک به دکمه‌ها
+        if (!isSelected) {
+            const addButton = col.querySelector('.add-to-cart');
+            if (addButton) {
+                addButton.addEventListener('click', function() {
+                    const productId = parseInt(this.getAttribute('data-product-id'));
+                    const productPrice = parseFloat(this.getAttribute('data-product-price'));
+                    addProductToInvoice(productId, 1, productPrice);
+                });
+            }
+        } else {
+            const plusButton = col.querySelector('.quantity-plus');
+            const minusButton = col.querySelector('.quantity-minus');
+            const quantityInput = col.querySelector('input[type="text"]');
+            
+            plusButton.addEventListener('click', function() {
+                const productId = parseInt(col.querySelector('.product-tile').getAttribute('data-product-id'));
+                increaseProductQuantity(productId);
+            });
+            
+            minusButton.addEventListener('click', function() {
+                const productId = parseInt(col.querySelector('.product-tile').getAttribute('data-product-id'));
+                const isTrash = this.classList.contains('trash');
+                
+                if (isTrash) {
+                    removeProductFromInvoice(productId);
+                } else {
+                    decreaseProductQuantity(productId);
+                }
+            });
+            
+            // اضافه کردن رویداد تغییر مقدار به ورودی تعداد
+            quantityInput.addEventListener('input', handleQuantityInputChange);
+        }
+        
+        return col;
+    }
+    
+    // دریافت تعداد محصول انتخاب شده
+    function getSelectedProductQuantity(productId) {
+        const product = selectedProducts.find(item => item.product_id === productId);
+        return product ? product.quantity : 0;
+    }
+    
+    /**
+     * افزودن محصول به فاکتور
+     * @param {number} productId - شناسه محصول
+     * @param {number} quantity - تعداد محصول
+     * @param {number} price - قیمت محصول (اختیاری)
+     * @param {boolean} replaceQuantity - آیا تعداد را جایگزین کند یا به آن اضافه کند (پیش‌فرض: false)
+     */
+    function addProductToInvoice(productId, quantity, price, replaceQuantity = false) {
+        // بررسی اینکه آیا محصول قبلاً در لیست وجود دارد یا خیر
+        productId = parseInt(productId);
+        quantity = parseInt(quantity);
+        
+        
+        
+        const existingProduct = selectedProducts.find(item => parseInt(item.product_id) === productId);
+
+        if (existingProduct) {
+            // اگر محصول قبلاً اضافه شده است
+            if (replaceQuantity) {
+                // اگر جایگزینی فعال است، تعداد را جایگزین کن
+                
+                existingProduct.quantity = quantity;
+            } else {
+                // در غیر این صورت، تعداد را افزایش بده
+                existingProduct.quantity += quantity;
+                
+            }
+
+            // به‌روزرسانی لیست محصولات انتخاب شده و وضعیت تایل‌های محصول
+            updateInvoiceItems();
+            updateProductTileSelections();
+        } else {
+            // اگر محصول جدید است، آن را به لیست اضافه کنید
+            
+            fetch(`/api/products/${productId}/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`خطای HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(product => {
+                    
+                    selectedProducts.push({
+                        product_id: productId,
+                        name: product.name,
+                        price: price || product.price,
+                        quantity: quantity,
+                        image: product.image || '/static/images/placeholders/product-placeholder.svg'
+                    });
+                    
+
+                    // به‌روزرسانی لیست محصولات انتخاب شده و وضعیت تایل‌های محصول
+                    updateInvoiceItems();
+                    updateProductTileSelections();
+                })
+                .catch(error => {
+                    
+                    alert('خطا در دریافت اطلاعات محصول. لطفاً دوباره تلاش کنید.');
+                });
+        }
+    }
+    
+    // افزایش تعداد محصول
+    function increaseProductQuantity(productId) {
+        const product = selectedProducts.find(item => item.product_id === productId);
+        if (product) {
+            product.quantity += 1;
+            
+            updateInvoiceItems();
+            updateProductTileSelections();
+        }
+    }
+    
+    // کاهش تعداد محصول
+    function decreaseProductQuantity(productId) {
+        const product = selectedProducts.find(item => item.product_id === productId);
+        if (product && product.quantity > 1) {
+            product.quantity -= 1;
+            
+            updateInvoiceItems();
+            updateProductTileSelections();
+        }
+    }
+    
+    // حذف محصول از فاکتور
+    function removeProductFromInvoice(productId) {
+        
+        const oldLength = selectedProducts.length;
+        selectedProducts = selectedProducts.filter(item => item.product_id !== productId);
+        
+        
+        if (oldLength === selectedProducts.length) {
+            
+            
+        } else {
+            
+        }
+        
+        updateInvoiceItems();
+        updateProductTileSelections();
+    }
+    
+    // به‌روزرسانی مستقیم تعداد محصول
+    function updateProductQuantity(productId, newQuantity) {
+        const product = selectedProducts.find(item => item.product_id === productId);
+        if (product) {
+            product.quantity = newQuantity;
+            console.log(`تعداد محصول ${product.name} به ${newQuantity} تغییر یافت`);
+            updateInvoiceItems();
+            updateProductTileSelections();
+        }
+    }
+    
+    // به‌روزرسانی وضعیت انتخاب تایل‌های محصول
+    function updateProductTileSelections() {
+        
+        const productTiles = document.querySelectorAll('.product-tile');
+        
+        productTiles.forEach(tile => {
+            const productId = parseInt(tile.getAttribute('data-product-id'));
+            const isSelected = selectedProducts.some(item => item.product_id === productId);
+            
+            
+            
+            // حذف کلاس selected از همه تایل‌ها
+            tile.classList.remove('selected');
+            
+            if (isSelected) {
+                // اضافه کردن کلاس selected اگر محصول انتخاب شده است
+                tile.classList.add('selected');
+                
+                const product = selectedProducts.find(item => item.product_id === productId);
+                const quantity = product ? product.quantity : 1;
+                
+                
+                
+                // پیدا کردن محل کنترل‌ها
+                const productTileBody = tile.querySelector('.product-tile-body');
+                const controlsContainer = tile.querySelector('.quantity-control, .add-to-cart');
+                
+                if (controlsContainer) {
+                    
+                    controlsContainer.outerHTML = `
+                        <div class="quantity-control">
+                            <button type="button" class="quantity-minus ${quantity === 1 ? 'trash' : ''}">
+                                <i class="fas ${quantity === 1 ? 'fa-trash-alt' : 'fa-minus'}"></i>
+                            </button>
+                            <input type="text" class="form-control mx-2" style="width: 60px" value="${persianNumber(quantity)}">
+                            <button type="button" class="quantity-plus">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    `;
+                } else if (productTileBody) {
+                    
+                    // اگر کانتینر کنترل‌ها پیدا نشد، به آخر productTileBody اضافه کن
+                    productTileBody.insertAdjacentHTML('beforeend', `
+                        <div class="quantity-control">
+                            <button type="button" class="quantity-minus ${quantity === 1 ? 'trash' : ''}">
+                                <i class="fas ${quantity === 1 ? 'fa-trash-alt' : 'fa-minus'}"></i>
+                            </button>
+                            <input type="text" class="form-control mx-2" style="width: 60px" value="${persianNumber(quantity)}">
+                            <button type="button" class="quantity-plus">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    `);
+                }
+                
+                // اضافه کردن رویدادها به دکمه‌های تازه ایجاد شده
+                const plusButton = tile.querySelector('.quantity-plus');
+                const minusButton = tile.querySelector('.quantity-minus');
+                const quantityInput = tile.querySelector('input[type="text"]');
+                
+                if (plusButton) {
+                    plusButton.addEventListener('click', function() {
+                        increaseProductQuantity(productId);
+                    });
+                }
+                
+                if (minusButton) {
+                    minusButton.addEventListener('click', function() {
+                        if (quantity === 1) {
+                            removeProductFromInvoice(productId);
+                        } else {
+                            decreaseProductQuantity(productId);
+                        }
+                    });
+                }
+                
+                if (quantityInput) {
+                    quantityInput.addEventListener('input', handleQuantityInputChange);
+                }
+            } else {
+                // اگر محصول انتخاب نشده است، دکمه افزودن نمایش داده شود
+                const productTileBody = tile.querySelector('.product-tile-body');
+                const controlsContainer = tile.querySelector('.quantity-control, .add-to-cart');
+                
+                // پیدا کردن قیمت محصول
+                let price = 0;
+                const priceElement = tile.querySelector('.product-price');
+                if (priceElement) {
+                    // استخراج قیمت از متن "10,000 تومان"
+                    const priceText = priceElement.textContent;
+                    const priceMatch = priceText.match(/[\d,]+/);
+                    if (priceMatch) {
+                        price = priceMatch[0].replace(/,/g, '');
+                    }
+                }
+                
+                if (controlsContainer) {
+                    controlsContainer.outerHTML = `
+                        <button type="button" class="btn btn-danger w-100 mt-2 add-to-cart" data-product-id="${productId}" data-product-price="${price}">
+                            <i class="fas fa-cart-plus me-1"></i> افزودن
+                        </button>
+                    `;
+                } else if (productTileBody) {
+                    // اگر کانتینر کنترل‌ها پیدا نشد، به آخر productTileBody اضافه کن
+                    productTileBody.insertAdjacentHTML('beforeend', `
+                        <button type="button" class="btn btn-danger w-100 mt-2 add-to-cart" data-product-id="${productId}" data-product-price="${price}">
+                            <i class="fas fa-cart-plus me-1"></i> افزودن
+                        </button>
+                    `);
+                }
+                
+                // اضافه کردن رویداد به دکمه افزودن
+                const addButton = tile.querySelector('.add-to-cart');
+                if (addButton) {
+                    addButton.addEventListener('click', function() {
+                        const productId = parseInt(this.getAttribute('data-product-id'));
+                        const productPrice = parseFloat(this.getAttribute('data-product-price'));
+                        addProductToInvoice(productId, 1, productPrice);
+                    });
+                }
+            }
+        });
+    }
+    
+    // به‌روزرسانی لیست اقلام فاکتور
+    function updateInvoiceItems() {
+        const container = document.getElementById('invoice-items-container');
+        container.innerHTML = '';
+        
+        if (selectedProducts.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    هنوز هیچ محصولی به فاکتور اضافه نشده است.
+                </div>
+            `;
+            return;
+        }
+        
+        // ایجاد آیتم‌های فاکتور
+        selectedProducts.forEach((item, index) => {
+            const invoiceItem = document.createElement('div');
+            invoiceItem.className = 'invoice-item';
+            
+            invoiceItem.innerHTML = `
+                <div class="invoice-item-info flex-grow-1">
+                    <div class="invoice-item-title">${item.name}</div>
+                    <div class="invoice-item-price">قیمت واحد: ${persianNumber(item.price)} تومان</div>
+                </div>
+                <div class="invoice-item-quantity text-center" style="width: 80px;">
+                    <span class="fw-bold">تعداد:</span> ${persianNumber(item.quantity)}
+                </div>
+                <div class="invoice-item-total text-end" style="width: 150px;">
+                    ${persianNumber(item.price * item.quantity)} تومان
+                </div>
+            `;
+            
+            container.appendChild(invoiceItem);
+        });
+        
+        // محاسبه مجدد قیمت کل فاکتور
+        calculateInvoiceTotal();
+    }
+    
+    // محاسبه قیمت کل فاکتور
+    function calculateInvoiceTotal() {
+        let subtotal = 0;
+        
+        // محاسبه مجموع قیمت محصولات
+        selectedProducts.forEach(item => {
+            subtotal += item.price * item.quantity;
+        });
+        
+        // دریافت مقدار درصد تخفیف و همت عالی
+        const discountInput = document.getElementById('{{ form.discount_amount.id_for_label }}');
+        const donationInput = document.getElementById('{{ form.donation_amount.id_for_label }}');
+        
+        const discountPercent = parseFloat(discountInput.value) || 0;
+        // استفاده از متغیر اصلی همت عالی به جای فیلد نمایشی
+        const donation = parseFloat(realDonationValue) || 0;
+        
+        // به‌روزرسانی جمع کل
+        $('#subtotal').text(`${persianNumber(subtotal)} تومان`);
+        
+        // محاسبه مبلغ تخفیف بر اساس درصد
+        const discountAmount = Math.round(subtotal * (discountPercent / 100));
+        
+        // ذخیره مقدار پولی تخفیف در فیلدهای مخفی
+        const hiddenDiscountValueInput = document.getElementById('hidden_discount_value');
+        const hiddenDiscountAmountInput = document.getElementById('hidden_discount_amount');
+        
+        // تنظیم مقدار تخفیف در هر دو فیلد مخفی
+        if (hiddenDiscountValueInput) {
+            hiddenDiscountValueInput.value = discountAmount;
+        }
+        
+        // تنظیم مقدار discount_amount برای ارسال به سرور - برطرف کردن خطای NOT NULL
+        if (hiddenDiscountAmountInput) {
+            hiddenDiscountAmountInput.value = discountAmount;
+        }
+        
+        // به‌روزرسانی تخفیف و همت عالی
+        $('#discount').text(`${persianNumber(discountAmount)} تومان (${persianNumber(discountPercent)}%)`);
+        $('#donation').text(`${persianNumber(donation)} تومان`);
+        
+        // محاسبه قیمت نهایی
+        const invoiceTotal = subtotal - discountAmount + donation;
+        $('#invoice-total').text(`${persianNumber(invoiceTotal)} تومان`);
+        
+        
+    }
+    
+    // تنظیم رویدادهای دکمه‌های روش پرداخت
+    // تنظیم رویدادهای دکمه‌های روش پرداخت
+    function setupPaymentMethods() {
+        // اطمینان از اینکه فیلد تخفیف حتماً مقدار دارد
+        const discountField = document.getElementById('{{ form.discount_amount.id_for_label }}');
+        if(discountField && (!discountField.value || discountField.value.trim() === '')) {
+            discountField.value = '0';
+        }
+        
+        const paymentButtons = document.querySelectorAll('.payment-button');
+        
+        paymentButtons.forEach(button => {
+            const paymentMethod = button.getAttribute('data-payment-method');
+            const paymentTitle = button.querySelector('.payment-title').textContent;
+            const paymentDesc = button.querySelector('.payment-desc').textContent;
+            
+            button.addEventListener('click', function() {
+                // به‌روزرسانی فیلد روش پرداخت
+                document.getElementById('{{ form.payment_method.id_for_label }}').value = paymentMethod;
+                
+                // به‌روزرسانی عنوان و توضیحات روش پرداخت
+                document.getElementById('payment-method-title').textContent = paymentTitle;
+                document.getElementById('payment-method-desc').textContent = paymentDesc;
+                
+                // به‌روزرسانی کلاس selected
+                paymentButtons.forEach(b => b.classList.remove('selected'));
+                button.classList.add('selected');
+                
+                // محاسبه مجدد تخفیف و مقدار نهایی
+                calculateInvoiceTotal();
+                
+                // اطمینان از اینکه فیلد تخفیف حتماً مقدار دارد
+                const discountField = document.getElementById('{{ form.discount_amount.id_for_label }}');
+                if(discountField && (!discountField.value || discountField.value.trim() === '')) {
+                    discountField.value = '0';
+                }
+            });
+        });
+    }
+    
+    // تابع فارسی‌ساز اعداد
+    function persianNumber(number) {
+        if (number === null || number === undefined) return '';
+        
+        // تبدیل به رشته و جدا کردن هر سه رقم با کاما
+        const formattedNumber = number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        
+        // جدول تبدیل اعداد انگلیسی به فارسی
+        const englishToPersian = {
+            '0': '۰', '1': '۱', '2': '۲', '3': '۳', '4': '۴',
+            '5': '۵', '6': '۶', '7': '۷', '8': '۸', '9': '۹',
+            ',': '،'
+        };
+        
+        // جایگزینی اعداد و کاما در متن
+        return formattedNumber.replace(/[0-9,]/g, function(match) {
+            return englishToPersian[match] || match;
+        });
+    }
+    
+    // تابع رسیدگی به تغییر مستقیم تعداد
+    function handleQuantityInputChange(event) {
+        const productId = parseInt(event.target.closest('.product-tile').getAttribute('data-product-id'));
+        const newQuantity = parseInt(event.target.value.replace(/[^0-9]/g, '')) || 1; // حذف کاراکترهای غیر عددی
+        
+        console.log(`تغییر مستقیم تعداد محصول ${productId} به ${newQuantity}`);
+        
+        if (newQuantity > 0) {
+            updateProductQuantity(productId, newQuantity);
+        } else {
+            event.target.value = persianNumber(1); // اگر مقدار نامعتبر بود، مقدار 1 قرار بده
+            updateProductQuantity(productId, 1);
+        }
+    }
+    
+    // مقدار عددی همت عالی بدون جداکننده هزارگان
+    let realDonationValue = {% if form.donation_amount.value %}{{ form.donation_amount.value }}{% else %}0{% endif %};
+    
+    // اضافه کردن فیلد مخفی برای مقدار اصلی همت عالی
+    $(document).ready(function() {
+        // ایجاد فیلد مخفی برای مقدار اصلی همت عالی
+        const donationInput = document.getElementById('{{ form.donation_amount.id_for_label }}');
+        const donationWrapper = donationInput.parentElement;
+        
+        // ایجاد فیلد مخفی
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'donation_amount';
+        hiddenInput.value = realDonationValue;
+        hiddenInput.id = 'hidden_donation_amount';
+        donationWrapper.appendChild(hiddenInput);
+        
+        // تغییر نام فیلد نمایشی تا در زمان ارسال فرم ارسال نشود و با دیت‌پیکر انتخاب نشود
+        donationInput.name = 'donation_amount_view';
+        
+        // غیرفعال کردن دیت‌پیکر روی این فیلد
+        donationInput.setAttribute('type', 'text');
+        donationInput.setAttribute('autocomplete', 'off');
+        donationInput.setAttribute('data-provide', 'non-datepicker');
+        donationInput.classList.add('numeric-only-field');
+        donationInput.classList.remove('datepicker', 'date-input', 'hasDatepicker');
+        
+        // جلوگیری از باز شدن دیت پیکر
+        if ($.fn.datepicker && $.fn.datepicker.noConflict) {
+            try {
+                $(donationInput).datepicker('destroy');
+            } catch (e) {
+                console.log('خطا در غیرفعال کردن دیت‌پیکر', e);
+            }
+        }
+        
+        // تابع تبدیل اعداد انگلیسی به فارسی
+        function toPersianDigits(n) {
+            const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            return n.toString().replace(/\d/g, x => farsiDigits[x]);
+        }
+        
+        // فرمت کردن مقدار نمایشی اولیه با جداکننده هزارگان و اعداد فارسی
+        if (realDonationValue > 0) {
+            // ابتدا فرمت با جداکننده هزارگان انگلیسی
+            const formattedValue = Number(realDonationValue).toLocaleString('en-US');
+            // سپس تبدیل اعداد به فارسی
+            donationInput.value = toPersianDigits(formattedValue);
+        }
+        
+        // رویداد تغییر مقدار فیلد همت عالی
+        donationInput.addEventListener('input', function() {
+            // حذف کاراکترهای غیر عددی و اعداد فارسی به انگلیسی
+            let value = this.value
+                .replace(/[^۰-۹\d,]/g, '') // فقط اعداد فارسی، انگلیسی و کاما را نگه دار
+                .replace(/[۰-۹]/g, d => String.fromCharCode(d.charCodeAt(0) - 1728)); // تبدیل اعداد فارسی به انگلیسی
+                
+            // حذف کاماها برای تبدیل به عدد
+            realDonationValue = value.replace(/,/g, '');
+            
+            // ذخیره مقدار اصلی در فیلد مخفی
+            hiddenInput.value = realDonationValue;
+            
+            // فرمت کردن مقدار نمایشی با جداکننده هزارگان و اعداد فارسی
+            if (realDonationValue) {
+                // ابتدا فرمت با جداکننده هزارگان انگلیسی
+                const formattedValue = Number(realDonationValue).toLocaleString('en-US');
+                // سپس تبدیل اعداد به فارسی
+                this.value = toPersianDigits(formattedValue);
+            }
+            
+            // به‌روزرسانی مجموع فاکتور
+            calculateInvoiceTotal();
+        });
+    });
+    
+    // اضافه کردن فیلد مخفی برای مقدار پولی تخفیف
+    $(document).ready(function() {
+        // فیلد درصد تخفیف موجود در فرم
+        const discountPercentInput = document.getElementById('{{ form.discount_amount.id_for_label }}');
+        const discountWrapper = discountPercentInput.parentElement;
+        
+        // اضافه کردن رویداد برای تبدیل اعداد فارسی به انگلیسی در فیلد درصد تخفیف
+        discountPercentInput.addEventListener('input', function() {
+            // مقدار فعلی فیلد
+            let value = this.value;
+            
+            // تبدیل اعداد فارسی به انگلیسی
+            if (value.match(/[۰-۹]/)) {
+                value = value.replace(/[۰-۹]/g, d => String.fromCharCode(d.charCodeAt(0) - 1728));
+                this.value = value;
+            }
+        });
+        
+        // ایجاد فیلد مخفی برای مقدار پولی تخفیف
+        const hiddenDiscountValueInput = document.createElement('input');
+        hiddenDiscountValueInput.type = 'hidden';
+        hiddenDiscountValueInput.name = 'discount_value';
+        hiddenDiscountValueInput.value = '0'; // مقدار پیش‌فرض صفر
+        hiddenDiscountValueInput.id = 'hidden_discount_value';
+        discountWrapper.appendChild(hiddenDiscountValueInput);
+        
+        // اضافه کردن ویژگی به فیلد اصلی برای جلوگیری از تداخل با دیتپیکر
+        discountPercentInput.setAttribute('type', 'text');
+        discountPercentInput.setAttribute('autocomplete', 'off');
+        discountPercentInput.setAttribute('data-provide', 'non-datepicker');
+        discountPercentInput.classList.add('numeric-only-field');
+        discountPercentInput.classList.remove('datepicker', 'date-input', 'hasDatepicker');
+        
+        // اضافه کردن رویداد برای محدود کردن درصد تخفیف به حداکثر 100
+        discountPercentInput.addEventListener('input', function() {
+            // تبدیل مقدار به عدد
+            let value = parseFloat(this.value) || 0;
+            
+            // محدود کردن مقدار به حداکثر 100
+            if (value > 100) {
+                value = 100;
+                this.value = value;
+            }
+            
+            // محاسبه مجدد مجموع فاکتور
+            calculateInvoiceTotal();
+        });
+    });
+    
+    // تابع نمایش ارور در مدال
+    function showErrorModal(message) {
+        const modalBody = document.getElementById('errorModalBody');
+        modalBody.textContent = message;
+        const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+        errorModal.show();
+    }
+
+    // تنظیم رویداد ارسال فرم
+    document.querySelector('#invoice-form').addEventListener('submit', function(event) {
+        event.preventDefault(); // جلوگیری از ارسال معمولی فرم
+
+        let errorMessages = [];
+
+        // بررسی عددی بودن درصد تخفیف
+        const discountInput = document.getElementById('id_discount_amount');
+        if (discountInput && discountInput.value && isNaN(discountInput.value)) {
+            errorMessages.push('درصد تخفیف باید فقط عدد باشد.');
+        }
+
+        // بررسی عددی بودن همت عالی (مقدار مخفی)
+        // const donationInput = document.getElementById('id_donation_amount');
+        // if (donationInput.value && realDonationValue == '') {
+        //     errorMessages.push('مقدار همت عالی باید فقط عدد باشد.');
+        // }
+        // بررسی وجود حداقل یک محصول
+        if (selectedProducts.length === 0) {
+            errorMessages.push('لطفاً حداقل یک محصول به فاکتور اضافه کنید.');
+        }
+
+        // اگر خطا وجود داشت، همه خطاها را به صورت لیست در مدال نمایش بده و فرم را ارسال نکن
+        if (errorMessages.length > 0) {
+            let html = '<ul class="mb-0">';
+            errorMessages.forEach(msg => {
+                html += `<li>${msg}</li>`;
+            });
+            html += '</ul>';
+            const modalBody = document.getElementById('errorModalBody');
+            modalBody.innerHTML = html;
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            errorModal.show();
+            return false;
+        }
+        // ذخیره محصولات در فیلد مخفی
+        const invoiceItemsInput = document.querySelector('#invoice_items');
+        if (!invoiceItemsInput) {
+            showErrorModal('فیلد مخفی invoice_items پیدا نشد!');
+            return false;
+        }
+        // تبدیل آرایه محصولات به JSON و قرار دادن در فیلد مخفی
+        const itemsData = selectedProducts.map(product => ({
+            product_id: parseInt(product.product_id),
+            quantity: parseInt(product.quantity),
+            price: parseInt(product.price)
+        }));
+        // تنظیم مقدار فیلد مخفی
+        invoiceItemsInput.value = JSON.stringify(itemsData);
+        // بررسی که آیا مقدار به درستی در فیلد قرار گرفته است
+        console.log("مقدار نهایی فیلد invoice_items:", invoiceItemsInput.value);
+        // فرم دیتا برای لاگ
+        const formDataLog = new FormData(this);
+        let formContents = {};
+        for (let pair of formDataLog.entries()) {
+            formContents[pair[0]] = pair[1];
+        }
+        // مستقیماً با استفاده از روش POST ارسال کن
+        try {
+            // تنظیم فرم و ارسال آن
+            this.submit();
+            return true;
+        } catch (error) {
+            showErrorModal('خطا در ارسال فرم: ' + error);
+            return false;
+        }
+        return true;
+    });
+</script>
+{% endblock %}

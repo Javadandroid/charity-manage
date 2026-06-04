@@ -1,0 +1,418 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}داشبورد مدیریتی{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1><i class="fas fa-chart-line me-2"></i> داشبورد مدیریتی</h1>
+    <p class="text-muted">مشاهده آمار و اطلاعات کلی سیستم مدیریت رویدادهای خیریه</p>
+</div>
+
+<!-- کارت‌های خلاصه آمار -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">رویدادها</h6>
+                        <h2 class="mb-0">{{ stats.event_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-calendar-alt fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <a href="{% url 'event_list' %}" class="text-white text-decoration-none">
+                    <small>مشاهده همه <i class="fas fa-arrow-left"></i></small>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">غرفه‌ها</h6>
+                        <h2 class="mb-0">{{ stats.booth_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-store fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <a href="{% url 'booth_list' %}" class="text-white text-decoration-none">
+                    <small>مشاهده همه <i class="fas fa-arrow-left"></i></small>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">محصولات</h6>
+                        <h2 class="mb-0">{{ stats.product_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-shopping-basket fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <a href="{% url 'products:product_list' %}" class="text-white text-decoration-none">
+                    <small>مشاهده همه <i class="fas fa-arrow-left"></i></small>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">فاکتورها</h6>
+                        <h2 class="mb-0">{{ stats.invoice_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-file-invoice-dollar fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <a href="{% url 'invoice_list' %}" class="text-white text-decoration-none">
+                    <small>مشاهده همه <i class="fas fa-arrow-left"></i></small>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> فروش کلی بر اساس رویداد</h5>
+                <div>
+                    <select id="sales-chart-period" class="form-select form-select-sm">
+                        <option value="week">هفته اخیر</option>
+                        <option value="month" selected>ماه اخیر</option>
+                        <option value="year">سال اخیر</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="salesByEventChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i> توزیع فروش</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="salesDistributionChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i> رویدادهای فعال</h5>
+                <a href="{% url 'event_list' %}" class="btn btn-light btn-sm">
+                    <i class="fas fa-list me-1"></i> مشاهده همه
+                </a>
+            </div>
+            <div class="card-body">
+                {% if active_events %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>نام رویداد</th>
+                                <th>تاریخ شروع</th>
+                                <th>تاریخ پایان</th>
+                                <th>تعداد غرفه</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for event in active_events %}
+                            <tr>
+                                <td>{{ event.name }}</td>
+                                <td>{{ event.start_date|date:"Y/m/d" }}</td>
+                                <td>{{ event.end_date|date:"Y/m/d" }}</td>
+                                <td>{{ event.booths.count }}</td>
+                                <td>
+                                    <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'event_dashboard' event.id %}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    در حال حاضر هیچ رویداد فعالی وجود ندارد.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-fire me-2"></i> پرفروش‌ترین غرفه‌ها</h5>
+                <a href="{% url 'booth_list' %}" class="btn btn-light btn-sm">
+                    <i class="fas fa-list me-1"></i> مشاهده همه
+                </a>
+            </div>
+            <div class="card-body">
+                {% if top_booths %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>نام غرفه</th>
+                                <th>رویداد</th>
+                                <th>تعداد فاکتور</th>
+                                <th>مبلغ فروش</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for booth in top_booths %}
+                            <tr>
+                                <td>{{ booth.name }}</td>
+                                <td>{{ booth.event.name }}</td>
+                                <td>{{ booth.invoice_count }}</td>
+                                <td>{{ booth.total_sales|floatformat:0|intcomma }} تومان</td>
+                                <td>
+                                    <a href="{% url 'booth_detail' booth.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'booth_dashboard' booth.id %}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    در حال حاضر هیچ اطلاعات فروشی برای غرفه‌ها وجود ندارد.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i> آخرین فاکتورها</h5>
+                <a href="{% url 'invoice_list' %}" class="btn btn-light btn-sm">
+                    <i class="fas fa-list me-1"></i> مشاهده همه
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_invoices %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>شماره فاکتور</th>
+                                <th>تاریخ</th>
+                                <th>مشتری</th>
+                                <th>غرفه</th>
+                                <th>رویداد</th>
+                                <th>مبلغ</th>
+                                <th>وضعیت</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in recent_invoices %}
+                            <tr>
+                                <td>{{ invoice.invoice_number }}</td>
+                                <td>{{ invoice.created_at|date:"Y/m/d H:i" }}</td>
+                                <td>{{ invoice.customer_name }}</td>
+                                <td>{{ invoice.booth.name }}</td>
+                                <td>{{ invoice.booth.event.name }}</td>
+                                <td>{{ invoice.total_amount|floatformat:0|intcomma }} تومان</td>
+                                <td>
+                                    {% if invoice.is_paid %}
+                                    <span class="badge bg-success">پرداخت شده</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">پرداخت نشده</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'invoice_pdf' invoice.id %}" class="btn btn-sm btn-danger" target="_blank">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    در حال حاضر هیچ فاکتوری ثبت نشده است.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // دریافت داده‌های آماری از API
+        fetch('{% url "dashboard_stats_api" %}')
+            .then(response => response.json())
+            .then(data => {
+                // نمودار فروش بر اساس رویداد
+                if (data.sales_by_event && data.sales_by_event.length > 0) {
+                    const salesByEventCtx = document.getElementById('salesByEventChart').getContext('2d');
+                    const salesByEventChart = new Chart(salesByEventCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.sales_by_event.map(item => item.name),
+                            datasets: [{
+                                label: 'مبلغ فروش (تومان)',
+                                data: data.sales_by_event.map(item => item.total),
+                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                borderColor: 'rgb(54, 162, 235)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value.toLocaleString('fa-IR') + ' تومان';
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'مقایسه فروش رویدادها'
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // نمودار توزیع فروش
+                if (data.sales_distribution && data.sales_distribution.length > 0) {
+                    const salesDistributionCtx = document.getElementById('salesDistributionChart').getContext('2d');
+                    const salesDistributionChart = new Chart(salesDistributionCtx, {
+                        type: 'pie',
+                        data: {
+                            labels: data.sales_distribution.map(item => item.name),
+                            datasets: [{
+                                data: data.sales_distribution.map(item => item.percentage),
+                                backgroundColor: [
+                                    'rgba(255, 99, 132, 0.7)',
+                                    'rgba(54, 162, 235, 0.7)',
+                                    'rgba(255, 206, 86, 0.7)',
+                                    'rgba(75, 192, 192, 0.7)',
+                                    'rgba(153, 102, 255, 0.7)',
+                                    'rgba(255, 159, 64, 0.7)',
+                                    'rgba(199, 199, 199, 0.7)',
+                                ],
+                                borderColor: [
+                                    'rgba(255, 99, 132, 1)',
+                                    'rgba(54, 162, 235, 1)',
+                                    'rgba(255, 206, 86, 1)',
+                                    'rgba(75, 192, 192, 1)',
+                                    'rgba(153, 102, 255, 1)',
+                                    'rgba(255, 159, 64, 1)',
+                                    'rgba(199, 199, 199, 1)',
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'درصد توزیع فروش بین رویدادها'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const value = context.raw || 0;
+                                            return `${label}: ${value}%`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => console.error('Error loading stats:', error));
+            
+        // تغییر دوره زمانی نمودار فروش
+        document.getElementById('sales-chart-period').addEventListener('change', function() {
+            const period = this.value;
+            fetch(`{% url "dashboard_stats_api" %}?period=${period}`)
+                .then(response => response.json())
+                .then(data => {
+                    // به‌روزرسانی نمودار فروش بر اساس رویداد
+                    if (data.sales_by_event && data.sales_by_event.length > 0) {
+                        const salesByEventChart = Chart.getChart('salesByEventChart');
+                        if (salesByEventChart) {
+                            salesByEventChart.data.labels = data.sales_by_event.map(item => item.name);
+                            salesByEventChart.data.datasets[0].data = data.sales_by_event.map(item => item.total);
+                            salesByEventChart.update();
+                        }
+                    }
+                })
+                .catch(error => console.error('Error loading stats:', error));
+        });
+    });
+</script>
+{% endblock %}

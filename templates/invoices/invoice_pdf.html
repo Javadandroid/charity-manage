@@ -1,0 +1,312 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فاکتور #{{ invoice.invoice_number }}</title>
+    <style>
+        @font-face {
+            font-family: 'Vazir';
+            src: url('/static/fonts/Vazir.eot');
+            src: url('/static/fonts/Vazir.eot?#iefix') format('embedded-opentype'),
+                 url('/static/fonts/Vazir.woff2') format('woff2'),
+                 url('/static/fonts/Vazir.woff') format('woff'),
+                 url('/static/fonts/Vazir.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        body {
+            font-family: 'Vazir', Tahoma, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+            direction: rtl;
+            text-align: right;
+        }
+        
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            padding: 20px;
+        }
+        
+        .invoice-header {
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .invoice-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .invoice-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .invoice-details-col {
+            width: 48%;
+        }
+        
+        .detail-row {
+            margin-bottom: 5px;
+            display: flex;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            width: 120px;
+        }
+        
+        .detail-value {
+            flex: 1;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        th, td {
+            padding: 10px;
+            text-align: right;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        
+        .total-row td {
+            border-top: 2px solid #333;
+            font-weight: bold;
+        }
+        
+        .final-total-row td {
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #f0f8ff;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-left {
+            text-align: left;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #fff;
+        }
+        
+        .status-paid {
+            background-color: #28a745;
+        }
+        
+        .status-unpaid {
+            background-color: #dc3545;
+        }
+        
+        .delivery-note {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px dashed #ddd;
+        }
+        
+        .delivery-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+                font-size: 12px;
+            }
+            
+            .invoice-container {
+                border: none;
+                max-width: 100%;
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="invoice-header">
+            <div>
+                <div class="invoice-title">فاکتور فروش</div>
+                <div>{{ invoice.booth.event.name }} - {{ invoice.booth.name }}</div>
+            </div>
+            <div>
+                <div><strong>شماره فاکتور:</strong> {{ invoice.invoice_number }}</div>
+                <div><strong>تاریخ:</strong> {{ invoice.created_at|date:"Y/m/d H:i" }}</div>
+                <div>
+                    <strong>وضعیت:</strong> 
+                    {% if invoice.is_paid %}
+                    <span class="status-badge status-paid">پرداخت شده</span>
+                    {% else %}
+                    <span class="status-badge status-unpaid">پرداخت نشده</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="invoice-details">
+            <div class="invoice-details-col">
+                <h3>اطلاعات مشتری</h3>
+                <div class="detail-row">
+                    <div class="detail-label">نام مشتری:</div>
+                    <div class="detail-value">{{ invoice.customer_name }}</div>
+                </div>
+                {% if invoice.customer_phone %}
+                <div class="detail-row">
+                    <div class="detail-label">شماره تماس:</div>
+                    <div class="detail-value">{{ invoice.customer_phone }}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="invoice-details-col">
+                <h3>اطلاعات فروشنده</h3>
+                <div class="detail-row">
+                    <div class="detail-label">نام غرفه:</div>
+                    <div class="detail-value">{{ invoice.booth.name }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">فروشنده:</div>
+                    <div class="detail-value">{{ invoice.seller.get_full_name|default:invoice.seller.username }}</div>
+                </div>
+                {% if invoice.payment_method %}
+                <div class="detail-row">
+                    <div class="detail-label">روش پرداخت:</div>
+                    <div class="detail-value">
+                        {% if invoice.payment_method == 'cash' %}نقدی
+                        {% elif invoice.payment_method == 'card' %}کارت بانکی
+                        {% elif invoice.payment_method == 'online' %}پرداخت آنلاین
+                        {% else %}سایر
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 5%;">ردیف</th>
+                    <th style="width: 40%;">نام محصول</th>
+                    <th style="width: 15%;">تعداد</th>
+                    <th style="width: 20%;">قیمت واحد (تومان)</th>
+                    <th style="width: 20%;">قیمت کل (تومان)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in invoice.items.all %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.quantity }} {{ item.product.unit.name|default:"عدد" }}</td>
+                    <td class="text-left">{{ item.price|floatformat:0|intcomma }}</td>
+                    <td class="text-left">{{ item.total_price|floatformat:0|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="4" class="text-left">جمع کل:</td>
+                    <td class="text-left">{{ invoice.subtotal|floatformat:0|intcomma }} تومان</td>
+                </tr>
+                
+                {% if invoice.discount_amount %}
+                <tr>
+                    <td colspan="4" class="text-left">تخفیف:</td>
+                    <td class="text-left">{{ invoice.discount_amount|floatformat:0|intcomma }} تومان</td>
+                </tr>
+                {% endif %}
+                
+                {% if invoice.donation_amount %}
+                <tr>
+                    <td colspan="4" class="text-left">همت عالی:</td>
+                    <td class="text-left">{{ invoice.donation_amount|floatformat:0|intcomma }} تومان</td>
+                </tr>
+                {% endif %}
+                
+                <tr class="final-total-row">
+                    <td colspan="4" class="text-left">مبلغ نهایی:</td>
+                    <td class="text-left">{{ invoice.total_amount|floatformat:0|intcomma }} تومان</td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        {% if invoice.description %}
+        <div class="detail-row">
+            <div class="detail-label">توضیحات:</div>
+            <div class="detail-value">{{ invoice.description }}</div>
+        </div>
+        {% endif %}
+        
+        <div class="delivery-note">
+            <div class="delivery-title">وضعیت تحویل محصولات:</div>
+            <ul>
+                {% for item in invoice.items.all %}
+                <li>
+                    {{ item.product.name }}: 
+                    {% if item.is_delivered %}
+                    <strong>تحویل شده</strong>
+                    {% else %}
+                    <strong>در انتظار تحویل</strong>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>{{ invoice.booth.event.name }} - {{ invoice.booth.name }}</p>
+            <p>تاریخ صدور: {{ invoice.created_at|date:"Y/m/d H:i" }}</p>
+            {% if invoice.is_paid and invoice.payment_date %}
+            <p>تاریخ پرداخت: {{ invoice.payment_date|date:"Y/m/d H:i" }}</p>
+            {% endif %}
+            <p>از خرید شما سپاسگزاریم!</p>
+        </div>
+        
+        <div class="no-print" style="margin-top: 20px; text-align: center;">
+            <button onclick="window.print();" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">چاپ فاکتور</button>
+            <button onclick="window.close();" style="padding: 10px 20px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">بستن</button>
+        </div>
+    </div>
+</body>
+</html>

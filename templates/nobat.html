@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block extra_css %}
+<style>
+  /* پر کردن کل صفحه */
+  html, body {height:100%; margin:0;}
+  main.container{max-width:100% !important; padding:0 !important; margin:0 !important}
+  /* هدر/فوتر فقط در حالت تمام‌صفحه مخفی شوند */
+  body.fs nav.navbar, body.fs footer{display:none !important}
+  body{background:linear-gradient(135deg,#0f172a 0%, #111827 100%);} 
+  .nobat-wrap{display:flex; align-items:center; justify-content:center; min-height:100vh; width:100vw; padding:0; margin:0}
+  .nobat-box{background:transparent; text-align:center; color:#fff; padding:0; margin:0}
+  .nobat-label{font-size:clamp(18px, 3.5vw, 5vw); opacity:.9; margin:0 0 .2em 0}
+  .nobat-number{font-weight:900; font-size:clamp(96px, 22vw, 30vw); line-height:1; letter-spacing:2px; margin:0}
+  .nobat-booth{font-size:clamp(24px, 6vw, 10vw); margin:.3em 0 0 0; color:#e5e7eb; font-weight:800}
+  .accent{color:#22d3ee}
+  .fs-btn{position:fixed; top:16px; left:16px; z-index:10}
+  .fs-btn i{margin-left:6px}
+</style>
+{% endblock %}
+
+{% block content %}
+<button id="fs-btn" class="btn btn-outline-secondary fs-btn"><i class="fas fa-expand"></i> تمام‌صفحه</button>
+<div class="nobat-wrap">
+  <div id="nobat-box" class="nobat-box">
+    <div class="nobat-label">شماره:</div>
+    <div class="nobat-number" id="nobat-number">--</div>
+    <div class="nobat-booth" id="nobat-booth">غرفه: —</div>
+  </div>
+</div>
+<div id="tts-warning" class="alert alert-warning d-none" style="position:fixed; bottom:10px; left:10px; z-index:20; padding:8px 12px; margin:0;">
+  صدای فارسی مرورگر یافت نشد؛ برای خواندن فارسی، بستهٔ زبان فارسی را در سیستم/مرورگر نصب کنید.
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+</div>
+<audio id="nobat-audio" preload="auto"></audio>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  function toPersianDigits(str){
+    try{
+      var map = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
+      return String(str||'').replace(/[0-9]/g, d => map[d]);
+    }catch(e){ return String(str||''); }
+  }
+  function toFull(el){
+    try{
+      if(el.requestFullscreen) el.requestFullscreen();
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if(el.msRequestFullscreen) el.msRequestFullscreen();
+    }catch(e){}
+  }
+  document.getElementById('fs-btn').addEventListener('click', function(){ toFull(document.documentElement); });
+  document.addEventListener('fullscreenchange', function(){
+    try{
+      if(document.fullscreenElement){ document.body.classList.add('fs'); }
+      else { document.body.classList.remove('fs'); }
+    }catch(e){}
+  });
+
+  var lastId = 0;
+  // انتخاب صدای فارسی مرورگر در صورت موجود بودن
+  var faVoice = null;
+  function pickFaVoice(){
+    try{
+      var voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      faVoice = null;
+      if(voices && voices.length){
+        faVoice = voices.find(v => (v.lang||'').toLowerCase().startsWith('fa')) ||
+                  voices.find(v => (v.name||'').toLowerCase().includes('persian')) || null;
+      }
+      var warn = document.getElementById('tts-warning');
+      if(warn){
+        if(faVoice){ warn.classList.add('d-none'); } else { warn.classList.remove('d-none'); }
+      }
+    }catch(e){}
+  }
+  if('speechSynthesis' in window){
+    try{ window.speechSynthesis.onvoiceschanged = pickFaVoice; }catch(e){}
+    pickFaVoice();
+  }
+  function speakFa(text){
+    try{
+      if(!('speechSynthesis' in window)) return;
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'fa-IR';
+      if(faVoice){ u.voice = faVoice; }
+      u.rate = 1.0; u.pitch = 1.0;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  function render(data){
+    if(!data) return;
+    var dn = data.display_number || '--';
+    var bn = data.booth_name || '';
+    document.getElementById('nobat-number').textContent = toPersianDigits(dn);
+    document.getElementById('nobat-booth').textContent = 'غرفه: ' + bn;
+    var id = parseInt(data.invoice_id||0);
+    if(id && id !== lastId){
+      lastId = id;
+      // خواندن فارسی: "شماره" + عدد + "، غرفه" + نام غرفه
+      try{
+        if(data.audio_url){
+          var au = document.getElementById('nobat-audio');
+          au.src = data.audio_url; au.currentTime = 0; au.play().catch(function(){ /* ignored */ });
+        } else {
+          speakFa('شماره ' + (data.display_number||'') + '، غرفه ' + (data.booth_name||''));
+        }
+      }catch(e){}
+    }
+  }
+  async function poll(){
+    try{
+      const res = await fetch("{% url 'nobat_current' %}", {headers:{'X-Requested-With':'XMLHttpRequest'}});
+      if(!res.ok) return;
+      const js = await res.json();
+      if(js && js.ok){ render(js.data); }
+    }catch(e){}
+  }
+  // مقدار اولیه از context (به صورت JSON امن)
+  try{ render(JSON.parse('{{ current|default:"{}"|escapejs }}')); }catch(e){}
+  setInterval(poll, 2000);
+})();
+</script>
+{% endblock %}

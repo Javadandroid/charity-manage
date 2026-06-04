@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load persian_filters %}
+{% block extra_css %}
+<style>
+    .hover-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    a.text-decoration-none:hover {
+        text-decoration: none !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="jumbotron p-5 mb-4 bg-light rounded-3">
+    <div class="container-fluid py-3">
+        <h1 class="display-5 fw-bold"> مدیریت رویدادهای خیریه</h1>
+        <p class="col-md-8 fs-4">
+            این سیستم به شما کمک می‌کند تا رویدادهای خیریه، غرفه‌ها، محصولات و فاکتورها را به راحتی مدیریت کنید.
+        </p>
+        {% if user.is_authenticated %}
+        <a href="{% url 'user_dashboard' %}" class="btn btn-primary btn-lg mt-2">
+            <i class="fas fa-tachometer-alt me-2"></i> داشبورد من
+        </a>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-primary btn-lg mt-2">
+            <i class="fas fa-sign-in-alt me-2"></i> ورود به سیستم
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+{% if events %}
+<h2 class="mb-4 mt-5">رویدادهای فعال</h2>
+<div class="row">
+    {% for event in events %}
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <img src="{{ event.get_image_url }}" class="card-img-top" alt="{{ event.name }}">
+            <div class="card-body">
+                <h5 class="card-title">{{ event.name }}</h5>
+                <p class="card-text">{{ event.description|truncatewords:20 }}</p>
+                <p class="card-text">
+                    <small class="text-muted">
+                        <i class="fas fa-calendar me-1"></i> از {{ event.start_date|jalali_date }} تا {{ event.end_date|jalali_date }}<br>
+                        <i class="fas fa-map-marker-alt me-1"></i> {{ event.location }}
+                    </small>
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'event_detail' event.id %}" class="btn btn-primary">مشاهده جزئیات</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info mt-5">
+    در حال حاضر هیچ رویداد فعالی وجود ندارد.
+</div>
+{% endif %}
+{% endif %}
+
+<div class="row mt-5 text-center">
+    {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+    <div class="col-md-4 mb-4">
+        <a href="{% url 'event_list' %}" class="text-decoration-none">
+            <div class="card h-100 hover-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar-alt fa-4x text-primary mb-3"></i>
+                    <h5 class="card-title">مدیریت رویدادها</h5>
+                    <p class="card-text">رویدادهای خیریه را ایجاد و مدیریت کنید، زمان‌بندی و مکان آن‌ها را تنظیم کنید.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-4">
+        <a href="{% url 'booth_list' %}" class="text-decoration-none">
+            <div class="card h-100 hover-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-store fa-4x text-success mb-3"></i>
+                    <h5 class="card-title">مدیریت غرفه‌ها</h5>
+                    <p class="card-text">غرفه‌های مختلف را برای هر رویداد ایجاد کنید و مسئولان هر غرفه را تعیین کنید.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-4">
+        <a href="{% url 'invoice_create' %}" class="text-decoration-none">
+            <div class="card h-100 hover-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-invoice-dollar fa-4x text-danger mb-3"></i>
+                    <h5 class="card-title">صدور فاکتور</h5>
+                    <p class="card-text">فاکتورهای فروش را به سادگی صادر کنید و گزارش‌های فروش را مشاهده کنید.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% else %}
+    <div class="col-md-12 mb-4">
+        <a href="{% url 'invoice_create' %}" class="text-decoration-none">
+            <div class="card h-100 hover-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-invoice-dollar fa-4x text-danger mb-3"></i>
+                    <h5 class="card-title">صدور فاکتور</h5>
+                    <p class="card-text">فاکتورهای فروش را به سادگی صادر کنید و گزارش‌های فروش را مشاهده کنید.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

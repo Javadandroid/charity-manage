@@ -1,0 +1,53 @@
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils.translation import gettext_lazy as _
+from events.models import Event
+
+class Booth(models.Model):
+    """مدل برای نگهداری اطلاعات غرفه‌های رویداد"""
+    
+    event = models.ForeignKey(
+        Event, 
+        related_name='booths', 
+        on_delete=models.CASCADE,
+        verbose_name=_('رویداد')
+    )
+    name = models.CharField(_('نام غرفه'), max_length=255)
+    description = models.TextField(_('توضیحات'), blank=True, null=True)
+    manager = models.ForeignKey(
+        User,
+        related_name='managed_booths',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_('مدیر غرفه')
+    )
+    staff = models.ManyToManyField(
+        User,
+        related_name='booth_staff',
+        blank=True,
+        verbose_name=_('کارکنان غرفه')
+    )
+    is_active = models.BooleanField(_('فعال است؟'), default=True)
+    image = models.ImageField(_('تصویر'), upload_to='booths/', blank=True, null=True)
+    created_at = models.DateTimeField(_('تاریخ ایجاد'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('تاریخ بروزرسانی'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('غرفه')
+        verbose_name_plural = _('غرفه‌ها')
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} - {self.event.name}"
+    
+    def total_sales(self):
+        """محاسبه کل فروش غرفه"""
+        from invoices.models import Invoice
+        return Invoice.objects.filter(booth=self).aggregate(
+            total=models.Sum('total_amount')
+        )['total'] or 0
+    
+    def product_count(self):
+        """تعداد محصولات غرفه"""
+        return self.products.count()

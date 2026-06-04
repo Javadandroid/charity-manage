@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#f8f9fa" />
+  <g transform="translate(150, 120)">
+    <path d="M50,0 L100,50 L100,125 L0,125 L0,50 Z" fill="#5c8eb8" />
+    <rect x="35" y="75" width="30" height="50" fill="#ffffff" />
+    <path d="M35,50 L25,50 L25,75 L45,75 L45,50 Z" fill="#ffffff" />
+    <path d="M65,50 L75,50 L75,75 L55,75 L55,50 Z" fill="#ffffff" />
+    <path d="M70,0 L100,30 L100,50 L70,50 Z" fill="#4a7ba0" />
+    <path d="M30,0 L0,30 L0,50 L30,50 Z" fill="#4a7ba0" />
+  </g>
+  <text x="200" y="220" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="#495057">غرفه</text>
+</svg>

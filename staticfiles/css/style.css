@@ -1,0 +1,262 @@
+/* فونت و استایل‌های پایه */
+body {
+    font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* RTL اصلاحات برای */
+.dropdown-menu {
+    text-align: right;
+}
+
+/* نوار ناوبری */
+.navbar-brand {
+    font-weight: bold;
+}
+
+/* کارت‌ها */
+.card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+/* جداول */
+.table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* دکمه‌ها */
+.btn {
+    border-radius: 4px;
+}
+
+.btn-primary {
+    background-color: #0062cc;
+}
+
+.btn-success {
+    background-color: #28a745;
+}
+
+/* فرم‌ها */
+.form-control {
+    border-radius: 4px;
+}
+
+.form-control:focus {
+    border-color: #0062cc;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* فاصله‌گذاری */
+.section-title {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* صفحه ورود */
+.login-container {
+    max-width: 450px;
+    margin: 5% auto;
+}
+
+/* پیام‌های فلش */
+.alert {
+    border-radius: 4px;
+}
+
+/* فوتر */
+footer {
+    margin-top: 40px;
+}
+
+/* نمودارها */
+canvas {
+    max-width: 100%;
+}
+
+/* بهینه‌سازی برای موبایل */
+@media (max-width: 767.98px) {
+    .card-title {
+        font-size: 1.25rem;
+    }
+    
+    h1 {
+        font-size: 1.75rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .nav-link {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .card-header {
+        padding: 0.75rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .table th, .table td {
+        padding: 0.5rem;
+    }
+    
+    /* نمایش بهتر فرم‌ها در موبایل */
+    .form-group {
+        margin-bottom: 0.75rem;
+    }
+    
+    .col-form-label {
+        padding-bottom: 0.25rem;
+    }
+}
+
+/* حالت تاریک */
+.bg-dark h5, .bg-dark p, .bg-dark .text-white {
+    color: #ffffff !important;
+}
+
+/* انیمیشن‌ها */
+.fade-in {
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* استایل‌های فارسی */
+.rtl-number {
+    direction: ltr;
+    unicode-bidi: embed;
+    display: inline-block;
+}
+
+/* سفارشی‌سازی Select2 */
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple {
+    border-radius: 4px;
+    border-color: #ced4da;
+}
+
+.select2-container--default .select2-selection--single:focus,
+.select2-container--default .select2-selection--multiple:focus {
+    border-color: #0062cc;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    padding-right: 12px;
+    padding-left: 20px;
+    text-align: right;
+}
+
+.select2-container--default .select2-results__option {
+    text-align: right;
+}
+
+/* داشبورد */
+.dashboard-card {
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+}
+
+.dashboard-icon {
+    font-size: 3rem;
+    opacity: 0.8;
+}
+
+/* صفحه فاکتور */
+.invoice-header {
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.invoice-footer {
+    border-top: 2px solid #dee2e6;
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+/* نمایش بهتر خطاها */
+.errorlist {
+    color: #dc3545;
+    list-style-type: none;
+    padding-right: 0;
+    margin-bottom: 0.5rem;
+}
+
+/* استایل‌های پرینت فاکتور */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    body {
+        font-size: 12pt;
+    }
+    
+    .container {
+        width: 100%;
+        max-width: none;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .card-header {
+        background-color: #fff !important;
+        color: #000 !important;
+    }
+    
+    .table th {
+        background-color: #fff !important;
+    }
+}

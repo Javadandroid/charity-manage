@@ -1,0 +1,602 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load persian_filters %}
+
+{% block title %}داشبورد فاکتورها{% endblock %}
+
+{% block content %}
+<script>
+function toPersianDigits(n) {
+    const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return n.toString().replace(/\d/g, x => farsiDigits[x]);
+}
+</script>
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{% url 'invoice_list' %}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left me-1"></i> بازگشت به لیست فاکتورها
+        </a>
+        
+        {% if user.is_staff or user.username == 'ershad' %}
+        <a href="{% url 'reports:market_report' %}" class="btn btn-success">
+            <i class="fas fa-file-excel me-1"></i> گزارش بازارچه
+        </a>
+        {% endif %}
+    </div>
+    
+    <h1><i class="fas fa-chart-bar me-2"></i> داشبورد فاکتورها</h1>
+    <p class="text-muted">مشاهده آمار و اطلاعات مربوط به فروش</p>
+</div>
+
+<div class="row mb-4">
+    <div class="col">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">کل فروش</h6>
+                        <h2 class="mb-0">{{ stats.total_sales|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-money-bill-wave fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">فروش کارتی</h6>
+                        <h2 class="mb-0">{{ stats.card_sales|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-credit-card fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">فروش نقدی</h6>
+                        <h2 class="mb-0">{{ stats.cash_sales|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-cash-register fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">همت عالی</h6>
+                        <h2 class="mb-0">{{ stats.total_donation|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-hands-helping fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">تعداد فاکتور</h6>
+                        <h2 class="mb-0">{{ stats.invoice_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-file-invoice fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> روند فروش بر اساس روز</h5>
+            </div>
+            <div class="card-body" style="height: 350px;">
+                <div style="position: relative; height: 100%; width: 100%;">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i> فروش بر اساس غرفه</h5>
+            </div>
+            <div class="card-body" style="height: 350px;">
+                <div style="position: relative; height: 100%; width: 100%;">
+                    <canvas id="boothPieChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-table me-2"></i> پرفروش‌ترین محصولات</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>محصول</th>
+                                <th>غرفه</th>
+                                <th>تعداد فروش</th>
+                                <th>مبلغ کل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in top_products %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'products:product_detail' product.id %}">{{ product.name }}</a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'booth_detail' product.booth.id %}">{{ product.booth.name }}</a>
+                                </td>
+                                <td>{{ product.sold_count }} <small class="text-muted">(در {{ product.invoice_count }} فاکتور)</small></td>
+                                <td>{{ product.total_sales|floatformat:0|intcomma }} تومان</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">هنوز محصولی فروخته نشده است.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i> آخرین فاکتورها</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>شماره فاکتور</th>
+                                <th>تاریخ</th>
+                                <th>مشتری</th>
+                                <th>غرفه</th>
+                                <th>مبلغ</th>
+                                <th>همت عالی</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in recent_invoices %}
+                            <tr>
+                                <td>{{ invoice.invoice_number }}</td>
+                                <td>{{ invoice.created_at|jalali_datetime }}</td>
+                                <td>{{ invoice.customer_name }}</td>
+                                <td>
+                                    <a href="{% url 'booth_detail' invoice.booth.id %}">{{ invoice.booth.name }}</a>
+                                </td>
+                                <td>{{ invoice.total_amount|floatformat:0|intcomma }} تومان</td>
+                                <td>
+                                    {% if invoice.donation_amount %}
+                                    {{ invoice.donation_amount|floatformat:0|intcomma }} تومان
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">هنوز فاکتوری ثبت نشده است.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // تنظیمات به‌روزرسانی داشبورد از settings.py
+    const REFRESH_INTERVAL = {{ DASHBOARD_REFRESH_INTERVAL|default:10 }} * 1000; // تبدیل ثانیه به میلی‌ثانیه
+    let autoRefreshEnabled = true; // فعال‌سازی به‌روزرسانی خودکار
+    let refreshTimer; // تایمر به‌روزرسانی
+    let lastUpdated; // زمان آخرین به‌روزرسانی
+    let dailyChart, boothChart; // متغیرهای نمودارها
+    
+    // تابع به‌روزرسانی داشبورد
+    function refreshDashboard() {
+        // نمایش وضعیت بارگذاری
+        const refreshStatus = document.getElementById('refresh-status');
+        if(refreshStatus) {
+            refreshStatus.innerHTML = '<i class="fas fa-sync fa-spin"></i> در حال به‌روزرسانی...';
+        }
+        
+        // درخواست به API داشبورد
+        fetch('{% url "dashboard_api" %}', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('خطا در به‌روزرسانی داشبورد');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // به‌روزرسانی آمار
+            updateStats(data.stats);
+            
+            // به‌روزرسانی نمودارها
+            updateCharts(data);
+            
+            // به‌روزرسانی پرفروش‌ترین محصولات
+            updateTopProducts(data.top_products);
+            
+            // به‌روزرسانی لیست آخرین فاکتورها
+            updateRecentInvoices(data.recent_invoices);
+            
+            // به‌روزرسانی زمان آخرین به‌روزرسانی
+            lastUpdated = new Date();
+            if(refreshStatus) {
+                const persianTime = new Intl.DateTimeFormat('fa-IR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }).format(lastUpdated);
+                refreshStatus.innerHTML = `<i class="fas fa-check-circle text-success"></i> آخرین به‌روزرسانی: ${persianTime}`;
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing dashboard:', error);
+            if(refreshStatus) {
+                refreshStatus.innerHTML = '<i class="fas fa-exclamation-circle text-danger"></i> خطا در به‌روزرسانی';
+            }
+        });
+    }
+    
+    // تابع به‌روزرسانی آمار
+    function updateStats(stats) {
+        // به‌روزرسانی کارت‌های آمار
+        document.getElementById('total-sales').textContent = stats.total_sales.toLocaleString('fa-IR') + ' تومان';
+        document.getElementById('card-sales').textContent = stats.card_sales.toLocaleString('fa-IR') + ' تومان';
+        document.getElementById('cash-sales').textContent = stats.cash_sales.toLocaleString('fa-IR') + ' تومان';
+        document.getElementById('total-donation').textContent = stats.total_donation.toLocaleString('fa-IR') + ' تومان';
+        document.getElementById('invoice-count').textContent = stats.invoice_count.toLocaleString('fa-IR');
+    }
+    
+    // تابع به‌روزرسانی نمودارها
+    function updateCharts(data) {
+        // به‌روزرسانی نمودار روزانه
+        if (dailyChart) {
+            dailyChart.data.labels = data.date_labels;
+            dailyChart.data.datasets[0].data = data.daily_sales;
+            dailyChart.update();
+        }
+        
+        // به‌روزرسانی نمودار غرفه‌ها
+        if (boothChart) {
+            boothChart.data.labels = data.booth_labels;
+            boothChart.data.datasets[0].data = data.booth_sales;
+            boothChart.update();
+        }
+    }
+    
+    // تابع به‌روزرسانی پرفروش‌ترین محصولات
+    function updateTopProducts(products) {
+        const tableBody = document.querySelector('.card:has(.fa-table) table tbody');
+        if (!tableBody) return;
+        
+        // پاک کردن داده‌های قبلی
+        tableBody.innerHTML = '';
+        
+        if (products.length === 0) {
+            // اگر محصولی وجود ندارد
+            const emptyRow = document.createElement('tr');
+            emptyRow.innerHTML = '<td colspan="4" class="text-center">هنوز محصولی فروخته نشده است.</td>';
+            tableBody.appendChild(emptyRow);
+            return;
+        }
+        
+        // اضافه کردن محصولات جدید
+        products.forEach(product => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <a href="/products/${product.id}/">${product.name}</a>
+                </td>
+                <td>
+                    <!-- نکته: غرفه در API نیست، بنابراین این سلول خالی می‌ماند -->
+                    -
+                </td>
+                <td>
+                    ${product.sold_count.toLocaleString('fa-IR')} 
+                    <small class="text-muted">(در ${product.invoice_count} فاکتور)</small>
+                </td>
+                <td>${product.total_sales.toLocaleString('fa-IR')} تومان</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+    
+    // تابع به‌روزرسانی لیست آخرین فاکتورها
+    function updateRecentInvoices(invoices) {
+        const tableBody = document.getElementById('recent-invoices-body');
+        if (!tableBody) return;
+        
+        // پاک کردن داده‌های قبلی
+        tableBody.innerHTML = '';
+
+        // اضافه کردن فاکتورهای جدید
+        invoices.forEach(invoice => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${invoice.invoice_number}</td>
+                <td>${toPersianDigits(invoice.created_at)}</td>
+                <td>${invoice.customer_name}</td>
+                <td>${invoice.booth_name}</td>
+                <td>${invoice.total_amount.toLocaleString('fa-IR')} تومان</td>
+                <td>${invoice.donation_amount.toLocaleString('fa-IR')}${invoice.donation_amount>0 ? ' تومان':''}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a href="/invoices/${invoice.id}/" class="btn btn-outline-info" title="مشاهده">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+    
+    // تابع تنظیم به‌روزرسانی خودکار
+    function setAutoRefresh(enabled) {
+        autoRefreshEnabled = enabled;
+        const toggleBtn = document.getElementById('toggle-refresh');
+        
+        if (enabled) {
+            // شروع تایمر
+            refreshTimer = setInterval(refreshDashboard, REFRESH_INTERVAL);
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i class="fas fa-pause"></i> توقف به‌روزرسانی خودکار';
+                toggleBtn.classList.remove('btn-success');
+                toggleBtn.classList.add('btn-warning');
+            }
+        } else {
+            // توقف تایمر
+            clearInterval(refreshTimer);
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i class="fas fa-play"></i> فعال‌سازی به‌روزرسانی خودکار';
+                toggleBtn.classList.remove('btn-warning');
+                toggleBtn.classList.add('btn-success');
+            }
+        }
+    }
+    
+    // اضافه کردن دکمه‌های کنترل به‌روزرسانی
+    document.addEventListener('DOMContentLoaded', function() {
+        // افزودن دکمه‌های کنترل به‌روزرسانی
+        const dashboardTitle = document.querySelector('.mb-4 h1');
+        if (dashboardTitle) {
+            // ایجاد div برای نمایش وضعیت به‌روزرسانی و دکمه‌ها
+            const controlDiv = document.createElement('div');
+            controlDiv.className = 'mt-2 d-flex align-items-center';
+            controlDiv.innerHTML = `
+                <div id="refresh-status" class="text-muted me-3">
+                    <i class="fas fa-check-circle text-success"></i> آخرین به‌روزرسانی: ${new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())}
+                </div>
+                <div class="btn-group ms-auto">
+                    <button id="refresh-now" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-sync"></i> به‌روزرسانی الان
+                    </button>
+                    <button id="toggle-refresh" class="btn btn-warning btn-sm">
+                        <i class="fas fa-pause"></i> توقف به‌روزرسانی خودکار
+                    </button>
+                </div>
+            `;
+            dashboardTitle.insertAdjacentElement('afterend', controlDiv);
+            
+            // اضافه کردن event listener به دکمه‌ها
+            document.getElementById('refresh-now').addEventListener('click', refreshDashboard);
+            document.getElementById('toggle-refresh').addEventListener('click', function() {
+                setAutoRefresh(!autoRefreshEnabled);
+            });
+        }
+        
+        // اضافه کردن ID به عناصری که می‌خواهیم به‌روزرسانی کنیم
+        const totalSalesElement = document.querySelector('.card.bg-primary h2');
+        if (totalSalesElement) {
+            totalSalesElement.id = 'total-sales';
+        }
+        
+        const cardSalesElement = document.querySelector('.card.bg-warning h2');
+        if (cardSalesElement) {
+            cardSalesElement.id = 'card-sales';
+        }
+        
+        const cashSalesElement = document.querySelector('.card.bg-success h2');
+        if (cashSalesElement) {
+            cashSalesElement.id = 'cash-sales';
+        }
+        
+        const donationElement = document.querySelector('.card.bg-info h2');
+        if (donationElement) {
+            donationElement.id = 'total-donation';
+        }
+        
+        const invoiceCountElement = document.querySelector('.card.bg-secondary h2');
+        if (invoiceCountElement) {
+            invoiceCountElement.id = 'invoice-count';
+        }
+        
+        // اضافه کردن ID به جدول فاکتورهای اخیر
+        const recentInvoicesTable = document.querySelector('.card:has(.fa-history) table tbody');
+        if (recentInvoicesTable) {
+            recentInvoicesTable.id = 'recent-invoices-body';
+        }
+        
+        // ایجاد نمودارها
+        createCharts();
+        
+        // شروع به‌روزرسانی خودکار
+        setAutoRefresh(true);
+    });
+    
+    // تابع ایجاد نمودارها
+    function createCharts() {
+        // نمودار روند فروش
+        const salesChartCtx = document.getElementById('salesChart')?.getContext('2d');
+        if (salesChartCtx) {
+            dailyChart = new Chart(salesChartCtx, {
+                type: 'line',
+                data: {
+                    labels: {{ date_labels|safe }},
+                    datasets: [{
+                        label: 'فروش روزانه',
+                        data: {{ daily_sales|safe }},
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                        pointBorderColor: '#fff',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' تومان';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    family: 'Vazirmatn'
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // نمودار پای غرفه‌ها
+        const boothChartCtx = document.getElementById('boothPieChart')?.getContext('2d');
+        if (boothChartCtx) {
+            boothChart = new Chart(boothChartCtx, {
+                type: 'pie',
+                data: {
+                    labels: {{ booth_labels|safe }},
+                    datasets: [{
+                        data: {{ booth_sales|safe }},
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(199, 199, 199, 0.7)',
+                            'rgba(83, 102, 255, 0.7)',
+                            'rgba(40, 159, 64, 0.7)',
+                            'rgba(210, 30, 30, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)',
+                            'rgba(83, 102, 255, 1)',
+                            'rgba(40, 159, 64, 1)',
+                            'rgba(210, 30, 30, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                font: {
+                                    family: 'Vazirmatn'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label || '';
+                                    var value = context.parsed || 0;
+                                    return label + ': ' + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' تومان';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

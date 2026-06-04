@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'products:product_list' %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت به لیست محصولات
+    </a>
+    <div class="d-flex justify-content-between align-items-center">
+        <h1>{{ product.name }}</h1>
+        <div class="btn-group">
+            {% if user.is_staff %}
+            <a href="{% url 'products:product_update' product.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> ویرایش
+            </a>
+            <a href="{% url 'products:product_delete' product.id %}" class="btn btn-outline-danger">
+                <i class="fas fa-trash me-1"></i> حذف
+            </a>
+            {% endif %}
+            <a href="{% url 'invoice_create_for_booth' product.booth.id %}?product={{ product.id }}" class="btn btn-outline-success">
+                <i class="fas fa-file-invoice-dollar me-1"></i> ثبت فاکتور
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        {% if not product.is_available %}
+        <div class="alert alert-warning mb-4">
+            <i class="fas fa-exclamation-triangle me-2"></i> این محصول در حال حاضر ناموجود است.
+        </div>
+        {% endif %}
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <img src="{{ product.get_image_url }}" class="img-fluid rounded" alt="{{ product.name }}">
+                    </div>
+                    <div class="col-md-8">
+                        <h3 class="mb-3">{{ product.name }} <small class="text-muted">({{ product.code }})</small></h3>
+                        <p><strong><i class="fas fa-store me-2"></i> غرفه:</strong> <a href="{% url 'booth_detail' product.booth.id %}">{{ product.booth.name }}</a></p>
+                        <p><strong><i class="fas fa-calendar-alt me-2"></i> رویداد:</strong> <a href="{% url 'event_detail' product.booth.event.id %}">{{ product.booth.event.name }}</a></p>
+                        <p><strong><i class="fas fa-money-bill me-2"></i> قیمت:</strong> {{ product.price|floatformat:0|intcomma }} تومان</p>
+                        <p><strong><i class="fas fa-balance-scale me-2"></i> واحد:</strong> {{ product.unit.name|default:"-" }}</p>
+                        <p><strong><i class="fas fa-info-circle me-2"></i> وضعیت:</strong> 
+                            {% if product.is_available %}
+                            <span class="badge bg-success">موجود</span>
+                            {% else %}
+                            <span class="badge bg-danger">ناموجود</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <h5>توضیحات:</h5>
+                <p>{{ product.description|linebreaks|default:"توضیحاتی وجود ندارد." }}</p>
+            </div>
+        </div>
+        
+        {% if sales_data.items %}
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> سوابق فروش</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>تاریخ</th>
+                                <th>شماره فاکتور</th>
+                                <th>مشتری</th>
+                                <th>تعداد</th>
+                                <th>قیمت فروش</th>
+                                <th>مبلغ کل</th>
+                                <th>وضعیت تحویل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in sales_data.items %}
+                            <tr>
+                                <td>{{ item.invoice.created_at|date:"Y/m/d H:i" }}</td>
+                                <td><a href="{% url 'invoice_detail' item.invoice.id %}">{{ item.invoice.invoice_number }}</a></td>
+                                <td>{{ item.invoice.customer_name }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>{{ item.price|floatformat:0|intcomma }} تومان</td>
+                                <td>{{ item.total_price|floatformat:0|intcomma }} تومان</td>
+                                <td>
+                                    {% if item.is_delivered %}
+                                    <span class="badge bg-success">تحویل شده</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">در انتظار تحویل</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> هنوز هیچ فروشی برای این محصول ثبت نشده است.
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i> آمار فروش</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <div>تعداد فروش:</div>
+                    <strong>{{ stats.quantity_sold|default:"0" }} {{ product.unit.name|default:"عدد" }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <div>مبلغ کل فروش:</div>
+                    <strong>{{ stats.total_sales|floatformat:0|intcomma|default:"0" }} تومان</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <div>تعداد فاکتورها :</div>
+                    <strong>{{ stats.invoice_count|default:"0" }}</strong>
+                </div>
+                
+                {% if sales_data.total_quantity > 0 %}
+                <hr>
+                <canvas id="salesChart" height="200"></canvas>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if user.is_staff %}
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-cog me-2"></i> مدیریت</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'products:product_update' product.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-1"></i> ویرایش محصول
+                    </a>
+                    {% if product.is_available %}
+                    <form method="post" action="{% url 'products:product_toggle_availability' product.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="is_available" value="false">
+                        <button type="submit" class="btn btn-outline-warning w-100">
+                            <i class="fas fa-ban me-1"></i> ناموجود کردن
+                        </button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="{% url 'products:product_toggle_availability' product.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="is_available" value="true">
+                        <button type="submit" class="btn btn-outline-success w-100">
+                            <i class="fas fa-check-circle me-1"></i> موجود کردن
+                        </button>
+                    </form>
+                    {% endif %}
+                    <a href="{% url 'products:product_delete' product.id %}" class="btn btn-outline-danger">
+                        <i class="fas fa-trash me-1"></i> حذف محصول
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if sales_data.total_quantity > 0 %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // نمودار فروش
+        const salesCtx = document.getElementById('salesChart').getContext('2d');
+        const salesChart = new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                labels: {{ sales_data.chart_data.dates|safe }},
+                datasets: [{
+                    label: 'تعداد فروش',
+                    data: {{ sales_data.chart_data.quantities|safe }},
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'روند فروش محصول'
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

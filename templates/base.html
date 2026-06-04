@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+{% load static %}
+{% load i18n %}
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title }}{% endblock %} | سیستم مدیریت رویدادهای خیریه</title>
+    
+    <!-- فاویکون -->
+    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/x-png">
+    <link rel="shortcut icon" href="{% static 'images/favicon.png' %}" type="image/x-png">
+    
+    <!-- فونت ایران‌سنس -->
+    <link rel="stylesheet" href="{% static 'libs/vazirmatn/Vazirmatn-font-face.css' %}">
+    
+    <!-- فونت سفارشی -->
+    <link rel="stylesheet" href="{% url 'custom_font_css' %}">
+    
+    <!-- فونت‌آوسام برای آیکون‌ها -->
+    <link rel="stylesheet" href="{% static 'libs/fontAwsomeIcons/all.css' %}">
+    
+    <!-- بوت‌استرپ RTL -->
+    <link rel="stylesheet" href="{% static 'libs/bootstrap/bootstrap.rtl.min.css' %}">
+    
+    <!-- Select2 CSS -->
+    <link href="{% static 'libs/select2/select2.min.css' %}" rel="stylesheet" />
+    <link href="{% static 'libs/select2/select2-bootstrap-5-theme.min.css' %}" rel="stylesheet" />
+    
+    <!-- نمودارها -->
+    <script src="{% static 'libs/charts/chart.js' %}"></script>
+    
+    <!-- تقویم شمسی -->
+    <link rel="stylesheet" href="{% static 'libs/persian-datepicker/css/persian-datepicker.min.css' %}">
+    <link href="{% static 'css/persian-datepicker-override.css' %}" rel="stylesheet">
+    
+    <!-- استایل سفارشی -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- نوار ناوبری -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <i class="fas fa-hands-helping me-2"></i>
+                بنیاد
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">
+                            <i class="fas fa-home"></i> صفحه اصلی
+                        </a>
+                    </li>
+                    {% if user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'event_list' %}">
+                            <i class="fas fa-calendar-alt"></i> رویدادها
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'booth_list' %}">
+                            <i class="fas fa-store"></i> غرفه‌ها
+                        </a>
+                    </li>
+                    {% if user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'products:product_list' %}">
+                            <i class="fas fa-shopping-basket"></i> محصولات
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'invoice_list' %}">
+                            <i class="fas fa-file-invoice"></i> فاکتورها
+                        </a>
+                    </li>
+                    {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'nobat_page' %}">
+                            <i class="fas fa-bell"></i> نوبت
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'dashboard' %}">
+                            <i class="fas fa-chart-bar"></i> داشبورد
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.is_staff or user.username == 'ershad' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'reports:report_index' %}">
+                            <i class="fas fa-chart-pie"></i> گزارشات
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin:index' %}">
+                            <i class="fas fa-cog"></i> پنل مدیریت
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'settings_dashboard' %}">
+                            <i class="fas fa-sliders-h"></i> تنظیمات
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                </ul>
+                <div class="d-flex">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'user_dashboard' %}" class="btn btn-outline-light me-2">
+                        <i class="fas fa-user"></i> {{ user.get_full_name|default:user.username }}
+                    </a>
+                    <a href="{% url 'logout' %}" class="btn btn-outline-light">
+                        <i class="fas fa-sign-out-alt"></i> خروج
+                    </a>
+                    {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-outline-light">
+                        <i class="fas fa-sign-in-alt"></i> ورود
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- پیام‌های فلش -->
+    {% if messages %}
+    <div class="container mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- محتوای اصلی -->
+    <main class="container my-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- فوتر -->
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>سیستم مدیریت رویدادهای خیریه</h5>
+                    <p>
+                        این سیستم برای مدیریت بهتر رویدادهای خیریه، غرفه‌ها، محصولات و فاکتورها طراحی شده است.
+                    </p>
+                </div>
+                <div class="col-md-3">
+                    <h5>دسترسی سریع</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{% url 'home' %}" class="text-white">صفحه اصلی</a></li>
+                        {% if user.is_staff %}
+                        <li><a href="{% url 'event_list' %}" class="text-white">رویدادها</a></li>
+                        {% endif %}
+                        {% if user.is_authenticated %}
+                        <li><a href="{% url 'booth_list' %}" class="text-white">غرفه‌ها</a></li>
+                        <li><a href="{% url 'invoice_list' %}" class="text-white">فاکتورها</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>ارتباط با ما</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-envelope me-2"></i> javadandroid@gmail.com</li>
+                        <li><i class="fas fa-phone me-2"></i> 09372582530</li>
+                        <li><i class="fas fa-map-marker-alt me-2"></i> تهران </li>
+                    </ul>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <p>© {% now "Y" %} تمام حقوق اين وب‌سايت  برای آقای جواد احمدی است.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- جاوااسکریپت بوت‌استرپ -->
+    <script src="{% static 'libs/bootstrap/bootstrap.bundle.min.js' %}"></script>
+    
+    <!-- جی‌کوئری -->
+    <script src="{% static 'libs/jquery/jquery-3.7.1.min.js' %}"></script>
+    
+    <!-- Select2 JS -->
+    <script src="{% static 'libs/select2/select2.min.js' %}"></script>
+    
+    <!-- تقویم شمسی -->
+    <script src="{% static 'libs/persian-datepicker/js/persian-date.min.js' %}"></script>
+    <script src="{% static 'libs/persian-datepicker/js/persian-datepicker.min.js' %}"></script>
+    
+    <!-- اسکریپت‌های سفارشی -->
+    <script src="{% static 'js/persian-datepicker.js' %}"></script>
+    <script src="{% static 'js/main.js' %}"></script>
+    
+    {% if not user.is_authenticated %}
+    <div id="kioskRedirectBanner" style="display:none; position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:1050; background:#28a745; color:#fff; padding:6px 14px; border-radius:999px; box-shadow:0 2px 8px rgba(0,0,0,0.2); text-align:center;">
+        <div style="font-weight:700; font-size:14px;">
+            زمان برگشت به کیوسک: <span id="kioskRedirectCountdown">-</span> ثانیه
+        </div>
+        <div style="font-size:12px; opacity:0.9; margin-top:2px;">
+            اگه کاربری وارد شو تا تایمت تموم نشده🫣
+        </div>
+    </div>
+    <script>
+        (function(){
+            try{
+                var path = window.location.pathname || '';
+                // اگر همین حالا روی صفحات کیوسک هستیم، ریدایرکت نکن
+                var onKiosk = /^\/kiosk(\/|$)/.test(path);
+                var total = Number('{{ KIOSK_REDIRECT_SECONDS|default:20 }}');
+                if(!onKiosk && total > 0){
+                    // نمایش بنر شمارش معکوس
+                    var banner = document.getElementById('kioskRedirectBanner');
+                    var span = document.getElementById('kioskRedirectCountdown');
+                    if (banner && span){
+                        banner.style.display = 'block';
+                        var remain = total;
+                        function paint(){
+                            var ratio = Math.max(0, Math.min(1, remain / total));
+                            var hue = Math.round(120 * ratio); // 120=سبز → 0=قرمز
+                            banner.style.backgroundColor = 'hsl(' + hue + ', 80%, 45%)';
+                        }
+                        span.textContent = String(remain);
+                        paint();
+                        var iv = setInterval(function(){
+                            remain -= 1;
+                            if (remain <= 0){
+                                remain = 0;
+                                clearInterval(iv);
+                            }
+                            span.textContent = String(remain);
+                            paint();
+                        }, 1000);
+                    }
+                    setTimeout(function(){
+                        window.location.href = "{% url 'kiosk_index' %}";
+                    }, total * 1000);
+                }
+            }catch(e){}
+        })();
+    </script>
+    {% endif %}
+
+    {% block extra_js %}{% endblock %}
+    
+    <!-- بلاک برای محتوای مودال‌ها -->
+    {% block modal %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,50 @@
+/**
+ * سفارشی‌سازی استایل‌های دیت‌پیکر شمسی
+ * استفاده از فونت سیستم
+ */
+
+.datepicker-plot-area {
+    font-family: inherit !important; /* استفاده از فونت‌های صفحه */
+    border-radius: 0.5rem !important;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+.datepicker-plot-area .datepicker-day-view .table-days td,
+.datepicker-plot-area .datepicker-year-view .year-item,
+.datepicker-plot-area .datepicker-month-view .month-item,
+.datepicker-plot-area .datepicker-header .btn-next,
+.datepicker-plot-area .datepicker-header .btn-prev,
+.datepicker-plot-area .datepicker-header .btn-switch,
+.datepicker-plot-area .datepicker-time-view .time-segment,
+.datepicker-plot-area .datepicker-time-view .divider,
+.datepicker-plot-area .datepicker-time-view .down-btn,
+.datepicker-plot-area .datepicker-time-view .up-btn {
+    font-family: inherit !important; /* استفاده از فونت‌های صفحه */
+}
+
+.datepicker-plot-area .datepicker-day-view .table-days td.selected span {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+.datepicker-plot-area .datepicker-day-view .table-days td span:hover {
+    background-color: #e9ecef !important;
+}
+
+.datepicker-plot-area .datepicker-header {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+.datepicker-plot-area .datepicker-header .btn-switch {
+    font-weight: bold !important;
+}
+
+.datepicker-plot-area .toolbox .btn-today {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+.datepicker-plot-area .toolbox .btn-today:hover {
+    background-color: #0b5ed7 !important;
+}

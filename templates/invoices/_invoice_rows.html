@@ -1,0 +1,66 @@
+{% load humanize %}
+{% load persian_filters %}
+{% for invoice in invoices %}
+<tr data-invoice-id="{{ invoice.id }}">
+    <td>
+        {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+        <div class="form-check form-switch delivery-toggle-container" data-invoice-id="{{ invoice.id }}">
+            <input class="form-check-input delivery-toggle" type="checkbox" id="delivery-toggle-{{ invoice.id }}">
+            <label class="form-check-label" for="delivery-toggle-{{ invoice.id }}">
+                <span class="delivery-status-text"><i class="fas fa-spinner fa-pulse"></i></span>
+            </label>
+        </div>
+        {% else %}
+        <span class="delivery-status-text-{{ invoice.id }}"><i class="fas fa-spinner fa-pulse"></i></span>
+        {% endif %}
+    </td>
+    <td>{{ invoice.invoice_number }}</td>
+    <td>{{ invoice.created_at|jalali_date }}</td>
+    <td>{{ invoice.customer_name }}</td>
+    {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+    <td>
+        <a href="{% url 'booth_detail' invoice.booth.id %}">{{ invoice.booth.name }}</a>
+    </td>
+    <td>
+        <a href="{% url 'event_detail' invoice.booth.event.id %}">{{ invoice.booth.event.name }}</a>
+    </td>
+    {% endif %}
+    <td>{{ invoice.total_amount|floatformat:0|intcomma }} تومان</td>
+    {% if user.is_staff or user.groups.all.0.name == 'ادمین غرفه' %}
+    <td>
+        {% if invoice.donation_amount %}
+        {{ invoice.donation_amount|floatformat:0|intcomma }} تومان
+        {% else %}-{% endif %}
+    </td>
+    {% endif %}
+    <td>
+        {% if invoice.is_paid %}
+        <span class="badge bg-success">پرداخت شده</span>
+        {% else %}
+        <span class="badge bg-danger">پرداخت نشده</span>
+        {% endif %}
+    </td>
+    <td>
+        {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+        <button type="button" class="btn btn-sm btn-outline-warning nobat-btn" data-invoice-id="{{ invoice.id }}" title="ارسال به نوبت">
+            <i class="fas fa-bell"></i>
+        </button>
+        {% else %}-{% endif %}
+    </td>
+    <td>
+        <div class="btn-group" role="group">
+            <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-sm btn-info" title="مشاهده">
+                <i class="fas fa-eye"></i>
+            </a>
+            {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+            <a href="{% url 'invoice_update' invoice.id %}" class="btn btn-sm btn-secondary" title="ویرایش">
+                <i class="fas fa-edit"></i>
+            </a>
+            <a href="{% url 'invoice_delete' invoice.id %}" class="btn btn-sm btn-danger" title="حذف">
+                <i class="fas fa-trash"></i>
+            </a>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% endfor %}

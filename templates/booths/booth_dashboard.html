@@ -1,0 +1,464 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load persian_filters %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'booth_detail' booth.id %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت به جزئیات غرفه
+    </a>
+    
+    <h1><i class="fas fa-chart-bar me-2"></i> داشبورد غرفه {{ booth.name }}</h1>
+    <p class="text-muted">رویداد: <a href="{% url 'event_dashboard' booth.event.id %}">{{ booth.event.name }}</a></p>
+</div>
+
+<div class="row mb-4">
+    <div class="col">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">کل فروش</h6>
+                        <h2 class="mb-0" dir="ltr">{{ stats.total_sales|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-money-bill-wave fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">فروش کارتی</h6>
+                        <h2 class="mb-0" dir="ltr">{{ stats.card_sales|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-credit-card fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">فروش نقدی</h6>
+                        <h2 class="mb-0" dir="ltr">{{ stats.cash_sales|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-cash-register fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">همت عالی</h6>
+                        <h2 class="mb-0" dir="ltr">{{ stats.total_donations|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-hand-holding-heart fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">تعداد فاکتور</h6>
+                        <h2 class="mb-0" dir="ltr">{{ stats.invoice_count|intcomma }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-file-invoice fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i> روند فروش</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="salesTrendChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i> محصولات پرفروش</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="topProductsDateSelect" class="mb-0 me-2">روز:</label>
+                        <select id="topProductsDateSelect" class="form-select form-select-sm" style="max-width: 200px;">
+                            <option value="">همه روزها</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="topProductsChart" height="300"></canvas>
+                <div id="topProductsList" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i> فاکتورهای اخیر</h5>
+                <a href="{% url 'invoice_list' %}?booth={{ booth.id }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-list me-1"></i> مشاهده همه
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_invoices %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>شماره فاکتور</th>
+                                <th>تاریخ</th>
+                                <th>نام مشتری</th>
+                                <th>مبلغ کل</th>
+                                <th>پرداخت شده</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in recent_invoices %}
+                            <tr>
+                                <td>{{ invoice.invoice_number }}</td>
+                                <td>{{ invoice.created_at|jalali_datetime }}</td>
+                                <td>{{ invoice.customer_name }}</td>
+                                <td>{{ invoice.total_amount|floatformat:0|intcomma }} تومان</td>
+                                <td>
+                                    {% if invoice.is_paid %}
+                                    <span class="badge bg-success">بله</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">خیر</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'invoice_update' invoice.id %}" class="btn btn-sm btn-secondary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    هنوز هیچ فاکتوری برای این غرفه ثبت نشده است.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // نمایش پیام در حال بارگذاری
+        const salesTrendChart = document.getElementById('salesTrendChart');
+        const topProductsChart = document.getElementById('topProductsChart');
+        const topProductsDateSelect = document.getElementById('topProductsDateSelect');
+        const topProductsList = document.getElementById('topProductsList');
+        let topProductsChartInstance = null;
+        const baseStatsUrl = '{% url "booth_stats_api" booth.id %}';
+        
+        // نمایش پیام «در حال بارگذاری» در محل نمودارها
+        [salesTrendChart, topProductsChart].forEach(canvas => {
+            const ctx = canvas.getContext('2d');
+            ctx.font = '16px Vazir, Tahoma, Arial';
+            ctx.fillStyle = '#6c757d';
+            ctx.textAlign = 'center';
+            ctx.fillText('در حال بارگذاری نمودار...', canvas.width / 2, canvas.height / 2);
+        });
+        
+        // تابع کمکی: دریافت و رندر محصولات پرفروش بر اساس تاریخ انتخابی
+        function fetchAndRenderTopProducts(dateStr) {
+            const url = dateStr ? `${baseStatsUrl}?date=${encodeURIComponent(dateStr)}` : baseStatsUrl;
+            return fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error('خطا در دریافت داده‌ها');
+                    return response.json();
+                })
+                .then(data => {
+                    // ساخت/بروزرسانی نمودار محصولات پرفروش
+                    if (data.top_products && data.top_products.length > 0) {
+                        const labels = data.top_products.map(item => item.name);
+                        const values = data.top_products.map(item => item.quantity);
+                        const ctx = topProductsChart.getContext('2d');
+                        if (!topProductsChartInstance) {
+                            topProductsChartInstance = new Chart(ctx, {
+                                type: 'pie',
+                                data: {
+                                    labels: labels,
+                                    datasets: [{
+                                        data: values,
+                                        backgroundColor: [
+                                            'rgba(255, 99, 132, 0.7)',
+                                            'rgba(54, 162, 235, 0.7)',
+                                            'rgba(255, 206, 86, 0.7)',
+                                            'rgba(75, 192, 192, 0.7)',
+                                            'rgba(153, 102, 255, 0.7)',
+                                            'rgba(255, 159, 64, 0.7)',
+                                            'rgba(199, 199, 199, 0.7)',
+                                        ],
+                                        borderColor: [
+                                            'rgba(255, 99, 132, 1)',
+                                            'rgba(54, 162, 235, 1)',
+                                            'rgba(255, 206, 86, 1)',
+                                            'rgba(75, 192, 192, 1)',
+                                            'rgba(153, 102, 255, 1)',
+                                            'rgba(255, 159, 64, 1)',
+                                            'rgba(199, 199, 199, 1)',
+                                        ],
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    plugins: {
+                                        legend: { position: 'right' },
+                                        title: { display: true, text: 'محصولات پرفروش' },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: function(context) {
+                                                    return context.label + ': ' + context.raw + ' عدد';
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        } else {
+                            topProductsChartInstance.data.labels = labels;
+                            topProductsChartInstance.data.datasets[0].data = values;
+                            topProductsChartInstance.update();
+                        }
+
+                        // فهرست متنی محصولات و تعداد فروش (برای مشاهده مستقیم تعداد)
+                        const items = [...data.top_products].sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
+                        let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>محصول</th><th class="text-center">تعداد فروش</th></tr></thead><tbody>';
+                        items.forEach(item => {
+                            html += `<tr><td>${item.name}</td><td class="text-center" dir="ltr">${(item.quantity || 0).toLocaleString('fa-IR')}</td></tr>`;
+                        });
+                        html += '</tbody></table></div>';
+                        topProductsList.innerHTML = html;
+                    } else {
+                        // پاک‌سازی و نمایش پیام عدم وجود داده
+                        const ctx = topProductsChart.getContext('2d');
+                        if (topProductsChartInstance) {
+                            topProductsChartInstance.destroy();
+                            topProductsChartInstance = null;
+                        }
+                        ctx.clearRect(0, 0, topProductsChart.width, topProductsChart.height);
+                        ctx.font = '16px Vazir, Tahoma, Arial';
+                        ctx.fillStyle = '#dc3545';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('اطلاعات محصولات پرفروش موجود نیست', topProductsChart.width / 2, topProductsChart.height / 2);
+                        topProductsList.innerHTML = '<div class="alert alert-warning">برای این روز فروشی ثبت نشده است.</div>';
+                    }
+
+                    // پر کردن گزینه‌های تاریخ فقط در بار اول یا زمانی که هنوز ساخته نشده
+                    if (data.invoice_dates && topProductsDateSelect.options.length <= 1) {
+                        data.invoice_dates.forEach(d => {
+                            const opt = document.createElement('option');
+                            opt.value = d.date; // YYYY-MM-DD
+                            // تبدیل به شمسی برای نمایش دوست‌داشتنی
+                            const parts = d.date.split('-');
+                            const gDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                            opt.textContent = gregorianToJalali(gDate);
+                            topProductsDateSelect.appendChild(opt);
+                        });
+                    }
+                });
+        }
+        
+        // دریافت داده‌های آماری اولیه (برای روند فروش و ساخت گزینه‌های تاریخ)
+        fetch(baseStatsUrl, { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('خطا در دریافت داده‌ها');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('API Response:', data); // برای راهنمایی در صورت مشکل
+                
+                // نمودار روند فروش
+                if (data.sales_trend && data.sales_trend.length > 0) {
+                    const salesTrendCtx = salesTrendChart.getContext('2d');
+                    
+                    // تبدیل تاریخ‌های میلادی به شمسی
+                    const persianDates = data.sales_trend.map(item => {
+                        // تبدیل فرمت تاریخ میلادی به شمسی
+                        const dateParts = item.date.split('-');
+                        const georgianDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+                        return gregorianToJalali(georgianDate);
+                    });
+                    
+                    new Chart(salesTrendCtx, {
+                        type: 'line',
+                        data: {
+                            labels: persianDates,
+                            datasets: [{
+                                label: 'فروش روزانه (تومان)',
+                                data: data.sales_trend.map(item => item.amount),
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderColor: 'rgb(54, 162, 235)',
+                                borderWidth: 2,
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value.toLocaleString('fa-IR') + ' تومان';
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'روند فروش روزانه'
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    // نمایش پیام در صورت عدم وجود داده
+                    const ctx = salesTrendChart.getContext('2d');
+                    ctx.clearRect(0, 0, salesTrendChart.width, salesTrendChart.height);
+                    ctx.font = '16px Vazir, Tahoma, Arial';
+                    ctx.fillStyle = '#dc3545';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('اطلاعات فروش روزانه موجود نیست', salesTrendChart.width / 2, salesTrendChart.height / 2);
+                }
+
+                // ساخت گزینه‌های تاریخ و سپس رندر اولیه نمودار محصولات پرفروش
+                // توجه: خود نمودار را فقط از مسیر fetchAndRenderTopProducts می‌سازیم/آپدیت می‌کنیم
+
+                // پر کردن گزینه‌های تاریخ برای فیلتر محصولات پرفروش
+                if (data.invoice_dates && data.invoice_dates.length > 0) {
+                    // گزینه‌ها را ساخته و نمایش می‌دهیم (همه + روزها)
+                    topProductsDateSelect.innerHTML = '<option value="">همه روزها</option>';
+                    data.invoice_dates.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d.date; // YYYY-MM-DD
+                        const parts = d.date.split('-');
+                        const gDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                        opt.textContent = gregorianToJalali(gDate);
+                        topProductsDateSelect.appendChild(opt);
+                    });
+                }
+
+                // ایجاد نمودار محصولات پرفروش اولیه با همه روزها
+                fetchAndRenderTopProducts('');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                [salesTrendChart, topProductsChart].forEach(canvas => {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.font = '16px Vazir, Tahoma, Arial';
+                    ctx.fillStyle = '#dc3545';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('خطا در دریافت داده‌ها', canvas.width / 2, canvas.height / 2);
+                });
+            });
+
+        // تغییر تاریخ فیلتر محصولات پرفروش
+        topProductsDateSelect.addEventListener('change', function() {
+            const val = this.value || '';
+            fetchAndRenderTopProducts(val);
+        });
+    });
+    
+    // تبدیل تاریخ میلادی به شمسی
+    function gregorianToJalali(date) {
+        let g_days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let j_days_in_month = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
+        
+        let gy = date.getFullYear();
+        let gm = date.getMonth() + 1;
+        let gd = date.getDate();
+        
+        let gy2 = (gm > 2) ? gy + 1 : gy;
+        let days = 355666 + (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400);
+        
+        for (let i = 0; i < gm - 1; ++i) {
+            days += g_days_in_month[i];
+        }
+        
+        if (gm > 2 && ((gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0))) {
+            days += 1;
+        }
+        
+        days += gd;
+        
+        let jy = -1595 + (33 * Math.floor(days / 12053));
+        days %= 12053;
+        jy += 4 * Math.floor(days / 1461);
+        days %= 1461;
+        
+        if (days > 365) {
+            jy += Math.floor((days - 1) / 365);
+            days = (days - 1) % 365;
+        }
+        
+        let jm = 0;
+        let jd;
+        
+        for (jm = 0; jm < 11 && days > j_days_in_month[jm]; ++jm) {
+            days -= j_days_in_month[jm];
+        }
+        
+        jd = days;
+        
+        let jalaliMonth = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+        
+        return jd + ' ' + jalaliMonth[jm] + ' ' + jy;
+    }
+</script>
+{% endblock %}

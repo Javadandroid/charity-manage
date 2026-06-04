@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if booth %}{% url 'booth_detail' booth.id %}{% elif event %}{% url 'event_detail' event.id %}{% else %}{% url 'booth_list' %}{% endif %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت
+    </a>
+    
+    <h1>
+        {% if booth %}
+        <i class="fas fa-edit me-2"></i> ویرایش غرفه
+        {% else %}
+        <i class="fas fa-plus me-2"></i> ایجاد غرفه جدید
+        {% endif %}
+    </h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">اطلاعات غرفه</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.name|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.event|as_crispy_field }}
+                        </div>
+                    </div>
+                    
+                    {{ form.description|as_crispy_field }}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.manager|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.staff|as_crispy_field }}
+                        </div>
+                    </div>
+                    
+                    {{ form.image|as_crispy_field }}
+                    
+                    <div class="form-check mb-3">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            آیا غرفه فعال است؟
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        {{ form.show_in_kiosk }}
+                        <label class="form-check-label" for="{{ form.show_in_kiosk.id_for_label }}">
+                            نمایش داخل کیوسک
+                        </label>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> ذخیره
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> راهنما</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>نام غرفه را به صورت واضح و گویا وارد کنید.</li>
+                    <li>رویداد مرتبط با غرفه را انتخاب کنید.</li>
+                    <li>مدیر غرفه مسئول مدیریت محصولات و فاکتورهاست.</li>
+                    <li>کارکنان غرفه می‌توانند فاکتور صادر کنند، اما نمی‌توانند غرفه را ویرایش کنند.</li>
+                    <li>اگر غرفه آماده ارائه خدمات است، آن را به عنوان فعال علامت بزنید.</li>
+                </ul>
+            </div>
+        </div>
+        
+        {% if event %}
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i> اطلاعات رویداد</h5>
+            </div>
+            <div class="card-body">
+                <h5>{{ event.name }}</h5>
+                <p><i class="fas fa-calendar me-1"></i> {{ event.start_date }} تا {{ event.end_date }}</p>
+                <p><i class="fas fa-map-marker-alt me-1"></i> {{ event.location }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // افزودن کلاس select2 برای انتخاب چندگانه کارکنان
+        $('#{{ form.staff.id_for_label }}').select2({
+            placeholder: 'کارکنان غرفه را انتخاب کنید',
+            allowClear: true,
+            dir: 'rtl'
+        });
+        
+        // افزودن کلاس select2 برای انتخاب مدیر
+        $('#{{ form.manager.id_for_label }}').select2({
+            placeholder: 'مدیر غرفه را انتخاب کنید',
+            allowClear: true,
+            dir: 'rtl'
+        });
+        
+        // افزودن کلاس select2 برای انتخاب رویداد
+        $('#{{ form.event.id_for_label }}').select2({
+            placeholder: 'رویداد را انتخاب کنید',
+            allowClear: false,
+            dir: 'rtl'
+        });
+    });
+</script>
+{% endblock %}

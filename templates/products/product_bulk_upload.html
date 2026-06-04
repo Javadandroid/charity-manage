@@ -1,0 +1,1183 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block content %}
+
+
+<div class="mb-4">
+    <a href="{% if booth %}{% url 'booth_detail' booth.id %}{% else %}{% url 'products:product_list' %}{% endif %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت
+    </a>
+    
+    <h1 class="text-center mb-4">افزودن گروهی محصول</h1>
+</div>
+
+<div class="container-fluid">
+    <!-- توکن CSRF برای امنیت فرم -->
+    {% csrf_token %}
+    <!-- بخش دکمه‌های بالای صفحه -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <a href="#" class="btn btn-info btn-lg w-100" id="add-row-btn">
+                <i class="fas fa-plus-circle me-2"></i> افزودن ردیف
+            </a>
+        </div>
+        <div class="col-md-6">
+            <a href="#" class="btn btn-success btn-lg w-100" id="import-excel-btn">
+                <i class="fas fa-file-excel me-2"></i> افزودن از اکسل
+            </a>
+        </div>
+    </div>
+
+    <!-- جدول محصولات -->
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-center" style="width: 5%;">ردیف</th>
+                    <th class="text-center" style="width: 8%;">کد</th>
+                    <th class="text-center" style="width: 15%;">نام محصول</th>
+                    <th class="text-center" style="width: 10%;">قیمت</th>
+                    <th class="text-center" style="width: 8%;">واحد</th>
+                    <th class="text-center" style="width: 12%;">غرفه</th>
+                    <th class="text-center" style="width: 15%;">توضیحات</th>
+                    <th class="text-center" style="width: 15%;">عکس</th>
+                    <th class="text-center" style="width: 5%;">حذف</th>
+                    <th class="text-center" style="width: 10%;">نتیجه ثبت</th>
+                </tr>
+            </thead>
+            <tbody id="products-table-body">
+                <!-- ردیف‌ها به صورت پویا با جاوااسکریپت اضافه می‌شوند -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- دکمه ثبت در پایین صفحه -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <button type="button" class="btn btn-warning btn-lg w-100" id="submit-products-btn">
+                <i class="fas fa-check me-2"></i> ثبت و بررسی محصولات
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- مدال تأیید حذف ردیف -->
+<div class="modal fade" id="confirm-delete-row-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">تأیید حذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>آیا از حذف این ردیف اطمینان دارید؟</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-row-btn">بله، حذف شود</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مدال تأیید حذف عکس -->
+<div class="modal fade" id="confirm-delete-image-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">تأیید حذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>آیا از حذف این عکس اطمینان دارید؟</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-image-btn">بله، حذف شود</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مدال آپلود فایل اکسل -->
+<div class="modal fade" id="excel-upload-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">آپلود فایل اکسل</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="excel-upload-form" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="excel-file" class="form-label">انتخاب فایل اکسل</label>
+                        <input class="form-control" type="file" id="excel-file" accept=".xlsx,.xls">
+                        <div class="form-text">فرمت مجاز: Excel (.xlsx, .xls)</div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <p>برای آشنایی با ساختار صحیح فایل اکسل، نمونه زیر را دانلود کنید.</p>
+                        <p class="mb-1">این فایل شامل:</p>
+                        <ul>
+                            <li>شیت اول: ساختار اصلی داده‌ها با ستون‌های موردنیاز</li>
+                            <li>شیت دوم: لیست کامل نام غرفه‌ها برای استفاده دقیق</li>
+                            <li>شیت سوم: لیست کامل واحدهای اندازه‌گیری</li>
+                        </ul>
+                    </div>
+                </form>
+                <!-- نمایش لودینگ هنگام پردازش اکسل -->
+                <div id="excel-loading" class="text-center">
+                    <div class="spinner-border text-primary mb-2" role="status">
+                        <span class="visually-hidden">در حال بارگذاری...</span>
+                    </div>
+                    <p class="mb-0">در حال پردازش فایل اکسل...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="{% url 'products:product_excel_template' %}" class="btn btn-success">
+                    <i class="fas fa-download me-1"></i>
+                    دانلود اکسل نمونه
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" id="upload-excel-btn" class="btn btn-primary">آپلود و پردازش</button>
+            </div>
+        </div>
+    </div>
+</div>
+        
+        {% if booth %}
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-store me-2"></i> اطلاعات غرفه</h5>
+            </div>
+            <div class="card-body">
+                <h5>{{ booth.name }}</h5>
+                <p><i class="fas fa-calendar me-1"></i> رویداد: {{ booth.event.name }}</p>
+                <p><i class="fas fa-user me-1"></i> مدیر: {{ booth.manager.get_full_name|default:booth.manager.username|default:"تعیین نشده" }}</p>
+                <p><i class="fas fa-shopping-basket me-1"></i> تعداد محصولات فعلی: {{ booth.products.count }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if results %}
+<div class="card mt-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i> نتایج آپلود</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-success">
+            <p><strong>{{ results.success_count }}</strong> محصول با موفقیت آپلود شد.</p>
+        </div>
+        
+        {% if results.error_messages %}
+        <div class="alert alert-danger">
+            <h6>خطاهای زیر رخ داده است:</h6>
+            <ul>
+                {% for error in results.error_messages %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% if results.created_products %}
+        <h5>محصولات ایجاد شده:</h5>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>کد</th>
+                        <th>نام</th>
+                        <th>قیمت</th>
+                        <th>واحد</th>
+                        <th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in results.created_products %}
+                    <tr>
+                        <td>{{ product.code }}</td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.price|floatformat:0|intcomma }} تومان</td>
+                        <td>{{ product.unit.name|default:"-" }}</td>
+                        <td>
+                            {% if product.is_available %}
+                            <span class="badge bg-success">موجود</span>
+                            {% else %}
+                            <span class="badge bg-danger">ناموجود</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    #excel-loading {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+    }
+    /* سفارشی‌سازی‌های CSS */
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.0/dist/xlsx.full.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // تعریف آرایه‌های واحدها و غرفه‌ها برای استفاده در فایل اکسل
+        window.allUnits = [
+            {% for unit in units %}
+                { id: "{{ unit.id }}", name: "{{ unit.name }}" }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        window.allBooths = [
+            {% for booth in booths %}
+                { id: "{{ booth.id }}", name: "{{ booth.name }}" }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        
+        {% if not booth %}
+        // افزودن کلاس select2 برای انتخاب غرفه
+        $('#{{ form.booth.id_for_label }}').select2({
+            placeholder: 'غرفه را انتخاب کنید',
+            allowClear: false,
+            dir: 'rtl'
+        });
+        {% endif %}
+        
+        // نمایش مدال آپلود اکسل با کلیک روی دکمه افزودن از اکسل
+        document.getElementById('import-excel-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            const modal = new bootstrap.Modal(document.getElementById('excel-upload-modal'));
+            modal.show();
+        });
+        
+        // پردازش آپلود فایل اکسل
+        var uploadBtn = document.getElementById('upload-excel-btn');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', function() {
+                const fileInput = document.getElementById('excel-file');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    showMessageModal('لطفاً یک فایل اکسل انتخاب کنید.', 'خطای فایل');
+                    return;
+                }
+                
+                // بررسی پسوند فایل
+                const fileExt = file.name.split('.').pop().toLowerCase();
+                if (fileExt !== 'xlsx' && fileExt !== 'xls') {
+                    showMessageModal('لطفاً یک فایل با فرمت اکسل (.xlsx یا .xls) انتخاب کنید.', 'فرمت فایل نامعتبر');
+                    return;
+                }
+                
+                // نمایش لودینگ
+                var loadingEl = document.getElementById('excel-loading');
+                if (loadingEl) loadingEl.style.display = 'block';
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    // بررسی شیت و یافتن شیت "نمونه محصولات"
+                    let targetSheetName = 'نمونه محصولات';
+                    
+                    // اگر شیت با نام "نمونه محصولات" وجود نداشت، شیت اول را استفاده کن
+                    if (workbook.SheetNames.indexOf(targetSheetName) === -1) {
+                        targetSheetName = workbook.SheetNames[0];
+                    }
+                    
+                    const worksheet = workbook.Sheets[targetSheetName];
+                    
+                    // تبدیل داده‌ها به آرایه‌ای از اشیاء
+                    const products = XLSX.utils.sheet_to_json(worksheet, {header: ['code', 'name', 'price', 'unit', 'description', 'booth']});
+                    
+                    // حذف ردیف هدر (اولین ردیف)
+                    if (products.length > 0) products.shift();
+                    
+                    // اضافه کردن هر محصول به جدول
+                    products.forEach(function(product) {
+                        addProductRow(product);
+                    });
+                    
+                    // نمایش پیام موفقیت
+                    showMessageModal(`${products.length} محصول با موفقیت اضافه شد.`, 'افزودن موفق');
+                    
+                    // مخفی کردن لودینگ و بستن مدال
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('excel-upload-modal'));
+                    if (modal) modal.hide();
+                    
+                    // به‌روزرسانی شماره ردیف‌ها
+                    updateRowNumbers();
+                };
+                
+                reader.onerror = function() {
+                    showMessageModal('خطا در خواندن فایل. لطفاً دوباره تلاش کنید.', 'خطای خواندن فایل');
+                    if (loadingEl) loadingEl.style.display = 'none';
+                };
+                
+                reader.readAsArrayBuffer(file);
+            });
+        }
+        
+        // اضافه کردن یک ردیف با داده‌های محصول از اکسل
+        function addProductRow(product) {
+            const tableBody = document.getElementById('products-table-body');
+            const rowCount = tableBody.querySelectorAll('tr').length + 1;
+            
+            
+            // ایجاد ردیف جدید
+            const newRow = document.createElement('tr');
+            
+            // ساختار ردیف جدید
+            newRow.innerHTML = `
+                <td class="text-center">${rowCount}</td>
+                <td>
+                    <input type="text" class="form-control" value="${product.code || ''}">
+                </td>
+                <td>
+                    <input type="text" class="form-control" value="${product.name || ''}">
+                </td>
+                <td>
+                    <input type="text" class="form-control product-price" value="${product.price || ''}">
+                </td>
+                <td>
+                    <select class="form-select unit-select">
+                        <option value="">انتخاب کنید</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="form-select booth-select">
+                        <option value="">انتخاب کنید</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control" placeholder="توضیحات محصول" value="${product.description || ''}">
+                </td>
+                <td>
+                    <a href="#" class="btn btn-outline-secondary w-100 py-2 my-1 image-upload-btn">
+                        <i class="fas fa-upload"></i> آپلود عکس
+                    </a>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger btn-sm delete-row">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+                <td class="text-center">
+                    <!-- نتیجه ثبت اینجا نمایش داده خواهد شد -->
+                </td>
+            `;
+            
+            // اضافه کردن ردیف به جدول
+            tableBody.appendChild(newRow);
+            
+            // پیدا کردن سلکت‌های نمونه برای کپی
+            // ما از یک ترفند استفاده می‌کنیم: اول یک ردیف اضافه می‌کنیم، سپس آن را حذف می‌کنیم
+            const tempBtn = document.getElementById('add-row-btn');
+            if (tempBtn) {
+                // یک کلیک موقت ایجاد می‌کنیم تا یک ردیف جدید به جدول اضافه شود
+                const originalRowsCount = document.querySelectorAll('#products-table-body tr').length;
+                tempBtn.click();
+                
+                // حالا ردیف جدید اضافه شده است، آن را پیدا می‌کنیم
+                const tempRows = document.querySelectorAll('#products-table-body tr');
+                if (tempRows.length > originalRowsCount) {
+                    // آخرین ردیف اضافه شده را انتخاب می‌کنیم
+                    const lastRow = tempRows[tempRows.length - 1];
+                    
+                    // دریافت تمام سلکت‌های موجود در ردیف
+                    const allSelects = lastRow.querySelectorAll('select');
+                    
+                    // شناسایی سلکت‌های واحد و غرفه
+                    const allTDs = lastRow.querySelectorAll('td');
+                    let tempUnitSelect = null;
+                    let tempBoothSelect = null;
+                    
+                    // بررسی دقیق هر ستون برای یافتن سلکت‌های واحد و غرفه
+                    for (let i = 0; i < allTDs.length; i++) {
+                        const select = allTDs[i].querySelector('select');
+                        
+                        if (select) {
+                            // نمایش گزینه‌های موجود در سلکت
+                            for (let j = 0; j < Math.min(3, select.options.length); j++) {
+                            }
+                            
+                            // بررسی دقیق‌تر محتوای گزینه‌ها برای تشخیص واحد و غرفه
+                            let isUnitSelect = false;
+                            let isBoothSelect = false;
+                            
+                            // بررسی نام گزینه‌ها برای تشخیص نوع سلکت
+                            // معمولاً سلکت واحد شامل کلماتی مانند عدد، کیلوگرم، لیتر و... است
+                            for (let j = 0; j < select.options.length; j++) {
+                                const optionText = select.options[j].textContent.trim().toLowerCase();
+                                
+                                // تشخیص سلکت واحد
+                                if (optionText.includes('عدد') || optionText.includes('کیلو') || 
+                                    optionText.includes('لیتر') || optionText.includes('متر')) {
+                                    isUnitSelect = true;
+                                    break;
+                                }
+                                
+                                // تشخیص سلکت غرفه
+                                if (optionText.includes('غرفه') || optionText.includes('بخش') || 
+                                    optionText.includes('فروشگاه')) {
+                                    isBoothSelect = true;
+                                    break;
+                                }
+                            }
+                            
+                            // تشخیص بر اساس موقعیت ستون و نتایج بررسی محتوا
+                            if (i === 4 || isUnitSelect) {
+                                tempUnitSelect = select;
+                               
+                            } else if (i === 5 || isBoothSelect) {
+                                tempBoothSelect = select;
+                            }
+                        }
+                    }
+                    
+                    // محتوای سلکت‌ها را کپی می‌کنیم
+                    const unitSelect = newRow.querySelector('.unit-select');
+                    const boothSelect = newRow.querySelector('.booth-select');
+                    
+                    if (tempUnitSelect && unitSelect) {
+                        unitSelect.innerHTML = tempUnitSelect.innerHTML;
+                    } else {
+                        console.error('Could not find unit select to copy from!');
+                    }
+                    
+                    if (tempBoothSelect && boothSelect) {
+                        boothSelect.innerHTML = tempBoothSelect.innerHTML;
+                    } else {
+                        console.error('Could not find booth select to copy from!');
+                    }
+                    
+                    // ردیف موقت را حذف می‌کنیم
+                    lastRow.remove();
+                }
+            } else {
+                console.error('Add row button not found!');
+            }
+            
+            // بررسی اگر واحد یا غرفه در فایل اکسل با نام موجود در سیستم مطابقت دارد، آن را انتخاب کنیم
+            setTimeout(() => {
+                const unitSelect = newRow.querySelector('.unit-select');
+                const boothSelect = newRow.querySelector('.booth-select');
+                
+                // انتخاب واحد
+                if (product.unit && unitSelect) {
+                    const unitOptions = unitSelect.querySelectorAll('option');
+                    for (let i = 0; i < unitOptions.length; i++) {
+                        if (unitOptions[i].textContent.trim() === product.unit.trim()) {
+                            unitSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                // انتخاب غرفه
+                if (product.booth && boothSelect) {
+                    const boothOptions = boothSelect.querySelectorAll('option');
+                    for (let i = 0; i < boothOptions.length; i++) {
+                        if (boothOptions[i].textContent.trim() === product.booth.trim()) {
+                            boothSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+            }, 100);
+            
+            // اضافه کردن رویدادها به عناصر جدید
+            newRow.querySelector('.delete-row').addEventListener('click', deleteRow);
+            newRow.querySelector('.product-price').addEventListener('input', function(e) {
+                formatPrice(e.target);
+            });
+            
+            // آماده‌سازی دکمه‌های آپلود عکس
+            handleImageUpload();
+            
+            // اعمال فرمت‌دهی به فیلدهای قیمت
+            applyPriceFormatting();
+        }
+
+        // آرایه‌های واحدها و غرفه‌ها برای استفاده در فایل اکسل
+        var allUnits = [
+            {% for unit in units %}
+                { id: "{{ unit.id }}", name: "{{ unit.name }}" }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        var allBooths = [
+            {% for booth in booths %}
+                { id: "{{ booth.id }}", name: "{{ booth.name }}" }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        
+        // تبدیل قیمت به فرمت پولی
+        function formatPrice(input) {
+            // حذف همه کاراکترهای غیر عددی
+            let value = input.value.replace(/\D/g, '');
+            // اضافه کردن کاما به عنوان سپراتور
+            input.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+        
+        // اعمال فرمت‌بندی به فیلدهای قیمت موجود
+        function applyPriceFormatting() {
+            // اعمال برای فیلدهای با قیمت placeholder
+            const priceInputsByPlaceholder = document.querySelectorAll('input[placeholder="قیمت"]');
+            // اعمال برای فیلدهای با کلاس product-price
+            const priceInputsByClass = document.querySelectorAll('.product-price');
+            
+            // ترکیب هر دو مجموعه
+            const allPriceInputs = [...priceInputsByPlaceholder, ...priceInputsByClass];
+            
+            // فرمت‌دهی تمام فیلدهای قیمت
+            allPriceInputs.forEach(input => {
+                // اعمال فرمت‌دهی اولیه برای مقادیر موجود
+                if (input.value) {
+                    formatPrice(input);
+                }
+                
+                // اضافه کردن رویدادهای فرمت‌دهی
+                input.addEventListener('input', function() {
+                    formatPrice(this);
+                });
+                input.addEventListener('blur', function() {
+                    formatPrice(this);
+                });
+                
+                // تبدیل نوع فیلد از number به text برای پشتیبانی از کاراکتر جداکننده
+                input.type = 'text';
+            });
+        }
+        
+        // افزودن ردیف جدید به جدول
+        document.getElementById('add-row-btn').addEventListener('click', function() {
+            const tableBody = document.getElementById('products-table-body');
+            const rowCount = tableBody.querySelectorAll('tr').length + 1;
+            
+            const newRow = `
+                <tr>
+                    <td class="text-center">${rowCount}</td>
+                    <td>
+                        <input type="text" class="form-control" placeholder="کد محصول">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control" placeholder="نام محصول">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control" placeholder="قیمت">
+                    </td>
+                    <td>
+                        <select class="form-select">
+                            <option value="">انتخاب کنید</option>
+                            {% for unit in available_units %}
+                            <option value="{{ unit.id }}">{{ unit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-select">
+                            <option value="">انتخاب کنید</option>
+                            {% for booth in available_booths %}
+                            <option value="{{ booth.id }}">{{ booth.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control" placeholder="توضیحات محصول">
+                    </td>
+                    <td class="text-center">
+                        <a href="#" class="btn btn-outline-secondary w-100 py-2 my-1 image-upload-btn">
+                            <i class="fas fa-upload"></i> آپلود عکس
+                        </a>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-danger btn-sm delete-row">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                    <td class="text-center">
+                        <!-- نتیجه ثبت اینجا نمایش داده خواهد شد -->
+                    </td>
+                </tr>
+            `;
+            
+            tableBody.insertAdjacentHTML('beforeend', newRow);
+            
+            // اضافه کردن رویداد حذف برای دکمه جدید
+            const deleteButtons = document.querySelectorAll('.delete-row');
+            deleteButtons[deleteButtons.length-1].addEventListener('click', deleteRow);
+            
+            // اعمال فرمت‌بندی به فیلدهای قیمت جدید
+            applyPriceFormatting();
+            
+            // اعمال رویداد آپلود عکس به دکمه‌های جدید
+            handleImageUpload();
+        });
+        
+        // اضافه کردن رویداد حذف به دکمه‌های حذف موجود
+        const deleteButtons = document.querySelectorAll('.delete-row');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', deleteRow);
+        });
+        
+        // اعمال فرمت‌بندی به فیلدهای قیمت موجود در زمان بارگذاری صفحه
+        applyPriceFormatting();
+        
+        // اعمال رویداد آپلود عکس به دکمه‌های موجود
+        handleImageUpload();
+        
+        // عملکرد حذف ردیف تغییر کرده و به بالا منتقل شده است
+        // و اکنون با تأیید مدال انجام می‌شود
+        
+        // به‌روزرسانی شماره‌های ردیف
+        function updateRowNumbers() {
+            const tableBody = document.getElementById('products-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            rows.forEach(function(row, index) {
+                row.querySelector('td:first-child').textContent = index + 1;
+            });
+        }
+        
+        // پردازش تصویر برای کاهش حجم و تغییر سایز
+        function processImage(file) {
+            return new Promise((resolve, reject) => {
+                // بررسی اینکه آیا فایل تصویر است
+                if (!file || !file.type.match(/^image\/(jpeg|png|jpg|webp)$/)) {
+                    resolve(file); // اگر تصویر نباشد، بدون تغییر برگردان
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // محاسبه ابعاد جدید با حفظ نسبت ابعاد
+                        let width = img.width;
+                        let height = img.height;
+                        const maxSize = 800;
+                        
+                        if (width > maxSize || height > maxSize) {
+                            if (width > height) {
+                                height = Math.round(height * (maxSize / width));
+                                width = maxSize;
+                            } else {
+                                width = Math.round(width * (maxSize / height));
+                                height = maxSize;
+                            }
+                        }
+                        
+                        // ایجاد کنواس برای تغییر سایز و کاهش حجم
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // تبدیل به JPEG با کیفیت 85%
+                        canvas.toBlob(function(blob) {
+                            // ایجاد فایل جدید با نام اصلی
+                            const newFile = new File(
+                                [blob],
+                                file.name.replace(/\.[^\.]+$/, '.jpg'),
+                                {type: 'image/jpeg'}
+                            );
+                            resolve(newFile);
+                        }, 'image/jpeg', 0.85);
+                    };
+                    img.onerror = function() {
+                        reject(new Error('خطا در بارگذاری تصویر'));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function() {
+                    reject(new Error('خطا در خواندن فایل'));
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // مدیریت آپلود و نمایش عکس
+        function handleImageUpload() {
+            // اضافه کردن رویداد کلیک به تمام دکمه‌های آپلود عکس (موجود و جدید)
+            document.querySelectorAll('.image-upload-btn').forEach(button => {
+                if (!button.hasAttribute('data-initialized')) {
+                    button.setAttribute('data-initialized', 'true');
+                    
+                    button.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const cell = this.closest('td');
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.accept = 'image/*';
+                        fileInput.style.display = 'none';
+                        fileInput.addEventListener('change', function() {
+                            if (this.files && this.files[0]) {
+                                // نمایش یک لودینگ موقت
+                                cell.innerHTML = `<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div><br><small>در حال پردازش تصویر...</small></div>`;
+                                
+                                // پردازش تصویر با تغییر سایز و کاهش حجم
+                                processImage(this.files[0]).then(processedFile => {
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        // حذف لودینگ و دکمه فعلی
+                                        cell.innerHTML = '';
+                                        
+                                        // ایجاد کانتینر عکس
+                                        const imageContainer = document.createElement('div');
+                                        imageContainer.className = 'position-relative image-container';
+                                        imageContainer.style.width = '100%';
+                                        imageContainer.style.height = '80px';
+                                        imageContainer.style.overflow = 'hidden';
+                                        
+                                        // تصویر تامبنیل
+                                        const thumbnail = document.createElement('img');
+                                        thumbnail.src = e.target.result;
+                                        thumbnail.className = 'w-100 h-100';
+                                        thumbnail.style.objectFit = 'cover';
+                                        thumbnail.dataset.originalFile = JSON.stringify({
+                                            name: processedFile.name,
+                                            type: processedFile.type,
+                                            size: processedFile.size
+                                        }); // ذخیره اطلاعات فایل برای استفاده در فرم
+                                        
+                                        // کانتینر دکمه‌های عملیات
+                                        const actionButtons = document.createElement('div');
+                                        actionButtons.className = 'image-actions position-absolute top-0 end-0 m-1 d-none';
+                                        
+                                        // دکمه آپلود مجدد
+                                        const reuploadBtn = document.createElement('button');
+                                        reuploadBtn.className = 'btn btn-light btn-sm me-1';
+                                        reuploadBtn.innerHTML = '<i class="fas fa-upload"></i>';
+                                        reuploadBtn.addEventListener('click', function(e) {
+                                            e.stopPropagation();
+                                            const newFileInput = document.createElement('input');
+                                            newFileInput.type = 'file';
+                                            newFileInput.accept = 'image/*';
+                                            newFileInput.style.display = 'none';
+                                            newFileInput.addEventListener('change', function() {
+                                                if (this.files && this.files[0]) {
+                                                    // نمایش لودینگ موقت
+                                                    const loadingHtml = `<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div><br><small>در حال پردازش تصویر...</small></div>`;
+                                                    cell.innerHTML = loadingHtml;
+                                                    
+                                                    // پردازش تصویر جدید
+                                                    processImage(this.files[0]).then(newProcessedFile => {
+                                                        const reader = new FileReader();
+                                                        reader.onload = function(e) {
+                                                            // بازسازی تامبنیل با تصویر جدید
+                                                            cell.innerHTML = '';
+                                                            imageContainer.innerHTML = '';
+                                                            thumbnail.src = e.target.result;
+                                                            thumbnail.dataset.originalFile = JSON.stringify({
+                                                                name: newProcessedFile.name,
+                                                                type: newProcessedFile.type,
+                                                                size: newProcessedFile.size
+                                                            });
+                                                            
+                                                            // بازسازی کانتینر عکس
+                                                            imageContainer.appendChild(thumbnail);
+                                                            imageContainer.appendChild(actionButtons);
+                                                            cell.appendChild(imageContainer);
+                                                        };
+                                                        reader.readAsDataURL(newProcessedFile);
+                                                    }).catch(error => {
+                                                        showMessageModal('خطا در پردازش تصویر: ' + error.message, 'خطای پردازش تصویر');
+                                                    });
+                                                }
+                                            });
+                                            document.body.appendChild(newFileInput);
+                                            newFileInput.click();
+                                            setTimeout(() => document.body.removeChild(newFileInput), 500);
+                                        });
+                                        
+                                        // دکمه حذف
+                                        const deleteBtn = document.createElement('button');
+                                        deleteBtn.className = 'btn btn-light btn-sm';
+                                        deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+                                        deleteBtn.addEventListener('click', function(e) {
+                                            e.stopPropagation();
+                                            
+                                            // ذخیره مرجع سلول فعلی برای استفاده در قسمت مدال
+                                            const currentCell = cell;
+                                            
+                                            // متغیر فلگ برای نگهداری دلیل باز کردن مدال
+                                            let modalAction = 'delete';
+                                            
+                                            // نمایش مدال تأیید
+                                            const deleteModal = new bootstrap.Modal(document.getElementById('confirm-delete-image-modal'));
+                                            deleteModal.show();
+                                            
+                                            // تنظیم رویداد کلیک برای دکمه تأیید حذف
+                                            document.getElementById('confirm-delete-image-btn').onclick = function() {
+                                                // براساس دلیل باز کردن مدال، اقدام مناسب انجام دهید
+                                                if (modalAction === 'delete') {
+                                                    // برگرداندن دکمه آپلود اصلی
+                                                    currentCell.innerHTML = `
+                                                        <a href="#" class="btn btn-outline-secondary w-100 py-2 my-1 image-upload-btn">
+                                                            <i class="fas fa-upload"></i> آپلود عکس
+                                                        </a>
+                                                    `;
+                                                    handleImageUpload();
+                                                }
+                                                
+                                                // بستن مدال
+                                                deleteModal.hide();
+                                                
+                                                // بازنشانی حالت مدال
+                                                modalAction = '';
+                                            };
+                                        });
+                                        
+                                        // اضافه کردن دکمه‌ها به کانتینر عملیات
+                                        actionButtons.appendChild(reuploadBtn);
+                                        actionButtons.appendChild(deleteBtn);
+                                        
+                                        // نمایش/مخفی کردن دکمه‌ها با hover موس
+                                        imageContainer.addEventListener('mouseenter', function() {
+                                            actionButtons.classList.remove('d-none');
+                                        });
+                                        imageContainer.addEventListener('mouseleave', function() {
+                                            actionButtons.classList.add('d-none');
+                                        });
+                                        
+                                        // اضافه کردن همه المان‌ها به صفحه
+                                        imageContainer.appendChild(thumbnail);
+                                        imageContainer.appendChild(actionButtons);
+                                        cell.appendChild(imageContainer);
+                                    };
+                                    reader.readAsDataURL(processedFile);
+                                }).catch(error => {
+                                    console.error('خطا در پردازش تصویر:', error);
+                                    showMessageModal('خطا در پردازش تصویر: ' + error.message, 'خطای پردازش تصویر');
+                                    
+                                    // برگرداندن دکمه آپلود در صورت خطا
+                                    cell.innerHTML = `
+                                        <a href="#" class="btn btn-outline-secondary w-100 py-2 my-1 image-upload-btn">
+                                            <i class="fas fa-upload"></i> آپلود عکس
+                                        </a>
+                                    `;
+                                    handleImageUpload();
+                                });
+                            }
+                        });
+                        document.body.appendChild(fileInput);
+                        fileInput.click();
+                        setTimeout(() => document.body.removeChild(fileInput), 500);
+                    });
+                }
+            });
+        }
+        
+        // ارسال فرم اصلی برای ثبت محصولات
+        document.getElementById('submit-products-btn').addEventListener('click', async function() {
+            // دریافت دکمه و ذخیره متن اصلی آن
+            const submitButton = this;
+            const originalButtonText = submitButton.innerHTML;
+            const productRows = document.querySelectorAll('#products-table-body tr');
+            
+            // اگر هیچ ردیفی وجود نداشته باشد، پیام خطا نمایش داده شود
+            if (productRows.length === 0) {
+                showMessageModal('هیچ محصولی برای ثبت وجود ندارد!', 'خطای ثبت محصول');
+                return;
+            }
+            
+            // ایجاد پراگرس بار
+            submitButton.disabled = true;
+            submitButton.classList.remove('btn-warning');
+            submitButton.classList.add('btn-secondary');
+            
+            // ایجاد عناصر داخل دکمه برای نمایش پیشرفت
+            submitButton.innerHTML = `
+                <div class="progress" style="height: 25px;">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                         role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        <span id="progress-text">آماده‌سازی...</span>
+                    </div>
+                </div>
+            `;
+            
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            // شبیه‌سازی ارسال هر ردیف به سرور و دریافت نتیجه
+            const totalProducts = productRows.length;
+            const successfulRows = [];
+            
+            for (let i = 0; i < totalProducts; i++) {
+                const row = productRows[i];
+                const resultCell = row.querySelector('td:last-child');
+                
+                // بروزرسانی پراگرس بار
+                const progress = Math.round(((i + 1) / totalProducts) * 100);
+                progressBar.style.width = progress + '%';
+                progressBar.setAttribute('aria-valuenow', progress);
+                progressText.textContent = `${i + 1} از ${totalProducts} محصول`;
+                
+                // جمع‌آوری داده‌های محصول از ردیف
+                const productData = {
+                    code: row.querySelector('td:nth-child(2) input').value,
+                    name: row.querySelector('td:nth-child(3) input').value,
+                    price: row.querySelector('td:nth-child(4) input').value.replace(/,/g, ''),
+                    unit: row.querySelector('td:nth-child(5) select').value,
+                    booth: row.querySelector('td:nth-child(6) select').value,
+                    description: row.querySelector('td:nth-child(7) input').value,
+                    is_available: true // مطابق با درخواست، موجودی محصول باید true باشد
+                };
+                
+                // بررسی اعتبارسنجی اولیه قبل از ارسال به سرور
+                let error = null;
+                
+                if (!productData.name) {
+                    error = 'نام محصول الزامی است';
+                } else if (!productData.price) {
+                    error = 'قیمت محصول الزامی است';
+                } else if (!productData.unit) {
+                    error = 'واحد محصول را انتخاب کنید';
+                } else if (!productData.booth) {
+                    error = 'غرفه محصول را انتخاب کنید';
+                }
+                
+                if (error) {
+                    // نمایش خطای اعتبارسنجی
+                    resultCell.innerHTML = `
+                        <span class="badge bg-danger text-white" data-bs-toggle="tooltip" title="${error}">
+                            <i class="fas fa-times"></i> خطا در ثبت
+                        </span>
+                    `;
+                    new bootstrap.Tooltip(resultCell.querySelector('[data-bs-toggle="tooltip"]'));
+                    continue; // رفتن به محصول بعدی
+                }
+                
+                try {
+                    // آماده‌سازی داده‌ها برای ارسال به سرور
+                    const formData = new FormData();
+                    formData.append('code', productData.code);
+                    formData.append('name', productData.name);
+                    formData.append('price', productData.price);
+                    formData.append('unit', productData.unit);
+                    formData.append('booth', productData.booth);
+                    formData.append('description', productData.description);
+                    formData.append('is_available', productData.is_available);
+                    
+                    // بررسی و ارسال تصویر محصول
+                    const imageCell = row.querySelector('td:nth-child(8)');
+                    const productImage = imageCell.querySelector('img');
+                    if (productImage && productImage.src && productImage.src.startsWith('data:image')) {
+                        // استخراج داده Base64 از تصویر
+                        const base64Data = productImage.src.split(',')[1];
+                        formData.append('image_data', base64Data);
+                        
+                        // ارسال اطلاعات فایل اصلی در صورت وجود
+                        if (productImage.dataset.originalFile) {
+                            try {
+                                const fileInfo = JSON.parse(productImage.dataset.originalFile);
+                                formData.append('image_name', fileInfo.name || 'product.jpg');
+                                formData.append('image_type', fileInfo.type || 'image/jpeg');
+                            } catch (e) {
+                                formData.append('image_name', 'product.jpg');
+                                formData.append('image_type', 'image/jpeg');
+                            }
+                        } else {
+                            formData.append('image_name', 'product.jpg');
+                            formData.append('image_type', 'image/jpeg');
+                        }
+                    }
+                    
+                    // اضافه کردن CSRF توکن برای امنیت
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    
+                    // ارسال درخواست به API
+                    const response = await fetch('{% url "products:product_create_api" %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: formData
+                    });
+                    
+                    // دریافت پاسخ به فرمت JSON
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // ثبت موفق
+                        resultCell.innerHTML = `
+                            <span class="badge bg-success">
+                                <i class="fas fa-check"></i> ثبت موفق
+                            </span>
+                        `;
+                        successfulRows.push(row);
+                    } else {
+                        // خطای ثبت
+                        resultCell.innerHTML = `
+                            <span class="badge bg-danger text-white" data-bs-toggle="tooltip" title="${result.error}">
+                                <i class="fas fa-times"></i> خطا در ثبت
+                            </span>
+                        `;
+                        new bootstrap.Tooltip(resultCell.querySelector('[data-bs-toggle="tooltip"]'));
+                    }
+                } catch (error) {
+                    // در صورت خطای غیرمنتظره
+                    resultCell.innerHTML = `
+                        <span class="badge bg-danger text-white" data-bs-toggle="tooltip" title="خطای سیستمی: ${error.message}">
+                            <i class="fas fa-times"></i> خطا در ثبت
+                        </span>
+                    `;
+                    new bootstrap.Tooltip(resultCell.querySelector('[data-bs-toggle="tooltip"]'));
+                }
+            }
+            
+            // بازگرداندن دکمه به حالت اولیه پس از اتمام پردازش
+            setTimeout(() => {
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+                submitButton.classList.remove('btn-secondary');
+                submitButton.classList.add('btn-success');
+                
+                // حذف ردیف‌های موفق
+                if (successfulRows.length > 0) {
+                    // نمایش پیام موفقیت با مدال
+                    showMessageModal(`${successfulRows.length} محصول با موفقیت ثبت شد.`, 'ثبت موفق');
+                    
+                    // حذف ردیف‌های موفق
+                    successfulRows.forEach(row => row.remove());
+                    
+                    // به‌روزرسانی شماره‌های ردیف
+                    updateRowNumbers();
+                }
+                
+                // اگر همه ردیف‌ها حذف شده باشند، دکمه به حالت اولیه برگردد
+                if (document.querySelectorAll('#products-table-body tr').length === 0) {
+                    submitButton.classList.remove('btn-success');
+                    submitButton.classList.add('btn-warning');
+                }
+            }, 1000);
+        });
+        
+        // مدال تایید حذف ردیف
+        let currentRowToDelete = null;
+        
+        // عملکرد حذف ردیف
+        function deleteRow(e) {
+            e.preventDefault();
+            // ابتدا ردیف موردنظر را ذخیره می‌کنیم
+            const row = e.target.closest('tr');
+            if (row) {
+                currentRowToDelete = row;
+                // نمایش مدال تایید
+                const deleteRowModal = new bootstrap.Modal(document.getElementById('confirm-delete-row-modal'));
+                deleteRowModal.show();
+            }
+        }
+        
+        // دکمه تایید حذف ردیف در مدال
+        document.getElementById('confirm-delete-row-btn').addEventListener('click', function() {
+            if (currentRowToDelete) {
+                currentRowToDelete.remove();
+                // به‌روزرسانی شماره‌های ردیف
+                updateRowNumbers();
+                // بستن مدال
+                bootstrap.Modal.getInstance(document.getElementById('confirm-delete-row-modal')).hide();
+            }
+        });
+    });
+</script>
+
+<!-- مدال تایید حذف ردیف -->
+<div class="modal fade" id="confirm-delete-row-modal" tabindex="-1" aria-labelledby="confirm-delete-row-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirm-delete-row-label">تایید حذف ردیف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>آیا از حذف این ردیف اطمینان دارید؟</p>
+                <p class="text-danger">این عمل قابل بازگشت نیست.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-row-btn">حذف</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مدال تایید حذف تصویر -->
+<div class="modal fade" id="confirm-delete-image-modal" tabindex="-1" aria-labelledby="confirm-delete-image-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirm-delete-image-label">تایید حذف تصویر</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>آیا از حذف این تصویر اطمینان دارید؟</p>
+                <p class="text-danger">این عمل قابل بازگشت نیست.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-image-btn">حذف</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مدال نمایش پیام به جای آلرت -->
+<div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalTitle">پیام سیستم</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="بستن"></button>
+            </div>
+            <div class="modal-body">
+                <p id="messageModalContent"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // تابع نمایش پیام در مدال به جای آلرت
+    function showMessageModal(message, title = 'پیام سیستم') {
+        const messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
+        document.getElementById('messageModalTitle').textContent = title;
+        document.getElementById('messageModalContent').textContent = message;
+        messageModal.show();
+    }
+</script>
+
+{% endblock %}

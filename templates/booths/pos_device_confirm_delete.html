@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="mb-4">
+        <a href="{% url 'pos_device_list' booth_id=booth.pk %}" class="btn btn-outline-primary mb-3">
+            <i class="fas fa-arrow-right me-1"></i> بازگشت به لیست دستگاه‌های پوز
+        </a>
+        
+        <h1><i class="fas fa-trash me-2"></i> حذف دستگاه پوز</h1>
+        <p class="text-muted">لطفاً حذف دستگاه پوز را تأیید کنید</p>
+    </div>
+    
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i> هشدار</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-0">آیا مطمئن هستید که می‌خواهید دستگاه پوز "<strong>{{ pos_device.name }}</strong>" را حذف کنید؟</p>
+            <p class="text-danger mt-2"><strong>توجه:</strong> این عملیات غیرقابل بازگشت است.</p>
+            
+            <div class="alert alert-info mt-3">
+                <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i> اطلاعات دستگاه پوز</h5>
+                <ul class="mb-0">
+                    <li><strong>نام دستگاه:</strong> {{ pos_device.name }}</li>
+                    <li><strong>نوع دستگاه:</strong> {{ pos_device.get_device_type_display }}</li>
+                    <li><strong>بانک:</strong> {{ pos_device.get_bank_display }}</li>
+                    <li><strong>نوع اتصال:</strong> {{ pos_device.get_connection_type_display }}</li>
+                </ul>
+            </div>
+            
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <div class="d-flex justify-content-center">
+                    <button type="submit" class="btn btn-danger mx-2">
+                        <i class="fas fa-trash me-1"></i> بله، حذف شود
+                    </button>
+                    <a href="{% url 'pos_device_list' booth_id=booth.pk %}" class="btn btn-secondary mx-2">
+                        <i class="fas fa-times me-1"></i> خیر، انصراف
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load persian_filters %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        body {
+            font-family: "Estedad Regular", sans-serif;
+            background-color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 100%;
+            width: 100%;
+            padding: 0;
+        }
+        
+        .card {
+            border: none;
+            box-shadow: none;
+        }
+        
+        .no-print {
+            display: none !important;
+        }
+        
+        .card-header {
+            background-color: #f8f9fa !important;
+            color: #000 !important;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .page-break {
+            page-break-after: always;
+        }
+        
+        a[href]:after {
+            content: none !important;
+        }
+        
+        .table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        .table th, .table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+    }
+    
+    @page {
+        size: A4;
+        margin: 1cm;
+    }
+    
+    .print-header {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .print-header h2 {
+        margin-bottom: 5px;
+    }
+    
+    .print-only {
+        display: none;
+    }
+    
+    @media print {
+        .print-only {
+            display: block;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- دکمه چاپ - فقط در نمایشگر -->
+    <div class="d-flex justify-content-between mb-4 no-print">
+        <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-primary">
+            <i class="fas fa-arrow-right me-1"></i> بازگشت به جزئیات فاکتور
+        </a>
+        <button onclick="window.print()" class="btn btn-success">
+            <i class="fas fa-print me-1"></i> چاپ فاکتور
+        </button>
+    </div>
+    
+    <!-- سربرگ چاپی -->
+    <div class="print-header print-only">
+        <h2>سیستم مدیریت رویدادهای خیریه</h2>
+        <p>{{ invoice.booth.event.name }}</p>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0 h5">فاکتور فروش شماره: {{ invoice.invoice_number }}</h3>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>اطلاعات مشتری</h5>
+                    <table class="table table-borderless">
+                        <tr>
+                            <th>نام مشتری:</th>
+                            <td>{{ invoice.customer_name }}</td>
+                        </tr>
+                        {% if invoice.customer_phone %}
+                        <tr>
+                            <th>شماره تماس:</th>
+                            <td>{{ invoice.customer_phone }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h5>اطلاعات فاکتور</h5>
+                    <table class="table table-borderless">
+                        <tr>
+                            <th>تاریخ:</th>
+                            <td>{{ invoice.created_at|date:"Y/m/d H:i"|persian_numbers }}</td>
+                        </tr>
+                        <tr>
+                            <th>غرفه:</th>
+                            <td>{{ invoice.booth.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>وضعیت پرداخت:</th>
+                            <td>
+                                {% if invoice.is_paid %}
+                                <span class="badge bg-success">پرداخت شده</span>
+                                {% else %}
+                                <span class="badge bg-danger">پرداخت نشده</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>روش پرداخت:</th>
+                            <td>{{ invoice.get_payment_method_display }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <h5>اقلام فاکتور</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ردیف</th>
+                            <th>نام کالا</th>
+                            <th>قیمت واحد (تومان)</th>
+                            <th>تعداد</th>
+                            <th>قیمت کل (تومان)</th>
+                            <th>وضعیت تحویل</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.price|floatformat:0|intcomma|persian_numbers }}</td>
+                            <td>{{ item.quantity|persian_numbers }}</td>
+                            <td>{{ item.total_price|floatformat:0|intcomma|persian_numbers }}</td>
+                            <td>
+                                {% if item.is_delivered %}
+                                <span class="badge bg-success">تحویل شده</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">تحویل نشده</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6 offset-md-6">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>جمع کل:</th>
+                            <td>{{ invoice.total_amount|floatformat:0|intcomma|persian_numbers }} تومان</td>
+                        </tr>
+                        {% if invoice.discount_amount %}
+                        <tr>
+                            <th>تخفیف:</th>
+                            <td>{{ invoice.discount_amount|floatformat:0|intcomma|persian_numbers }} تومان</td>
+                        </tr>
+                        {% endif %}
+                        {% if invoice.donation_amount %}
+                        <tr>
+                            <th>همت عالی:</th>
+                            <td>{{ invoice.donation_amount|floatformat:0|intcomma|persian_numbers }} تومان</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="table-primary">
+                            <th>مبلغ قابل پرداخت:</th>
+                            <td class="fw-bold">{{ invoice.total_amount|floatformat:0|intcomma|persian_numbers }} تومان</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            {% if invoice.description %}
+            <div class="mt-4">
+                <h5>توضیحات:</h5>
+                <p class="border p-2 rounded">{{ invoice.description }}</p>
+            </div>
+            {% endif %}
+            
+            <div class="row mt-5 print-only">
+                <div class="col-md-4 text-center">
+                    <p>مهر و امضای فروشنده</p>
+                    <div style="height: 70px; border-bottom: 1px dashed #ccc;"></div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <p>امضای خریدار</p>
+                    <div style="height: 70px; border-bottom: 1px dashed #ccc;"></div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <p>مهر و امضای مدیریت</p>
+                    <div style="height: 70px; border-bottom: 1px dashed #ccc;"></div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-5 print-only">
+                <p class="small text-muted">این فاکتور از سیستم مدیریت رویدادهای خیریه صادر شده است.</p>
+                <p class="small text-muted">تاریخ چاپ: {% now "Y/m/d H:i"|persian_numbers %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // بلافاصله پس از بارگذاری صفحه، پنجره چاپ نمایش داده شود (اختیاری)
+    document.addEventListener('DOMContentLoaded', function() {
+        // بعد از 1.5 ثانیه باز شود تا صفحه کاملاً بارگذاری شود
+        setTimeout(function() {
+            // اگر می‌خواهید چاپ خودکار فعال شود، این خط را از حالت کامنت خارج کنید
+            // window.print();
+        }, 1500);
+    });
+</script>
+{% endblock %}

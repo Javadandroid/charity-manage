@@ -1,0 +1,534 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load persian_filters %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'invoice_list' %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت به لیست فاکتورها
+    </a>
+    <div class="d-flex justify-content-between align-items-center">
+        <h1>فاکتور #{{ invoice.invoice_number }}</h1>
+        <div class="btn-group">
+            {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+            <a href="{% url 'invoice_update' invoice.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> ویرایش
+            </a>
+            <a href="{% url 'invoice_delete' invoice.id %}" class="btn btn-outline-danger">
+                <i class="fas fa-trash me-1"></i> حذف
+            </a>
+            {% endif %}
+            <a href="{% url 'print_invoice' invoice.id %}" class="btn btn-outline-success" target="_blank">
+                <i class="fas fa-file-pdf me-1"></i> چاپ
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> اطلاعات فاکتور</h5>
+        {% if invoice.is_paid %}
+        <span class="badge bg-success p-2">پرداخت شده</span>
+        {% else %}
+        <span class="badge bg-danger p-2">پرداخت نشده</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-borderless">
+                    <tr>
+                        <th style="width: 150px;">شماره فاکتور:</th>
+                        <td>{{ invoice.invoice_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>نام مشتری:</th>
+                        <td>{{ invoice.customer_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>تاریخ صدور:</th>
+                        <td>{{ invoice.created_at|jalali_datetime }}</td>
+                    </tr>
+                    <tr>
+                        <th>شماره تماس:</th>
+                        <td>{{ invoice.customer_phone|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-borderless">
+                    <tr>
+                        <th style="width: 150px;">غرفه:</th>
+                        <td><a href="{% url 'booth_detail' invoice.booth.id %}">{{ invoice.booth.name }}</a></td>
+                    </tr>
+                    <tr>
+                        <th>رویداد:</th>
+                        <td><a href="{% url 'event_detail' invoice.booth.event.id %}">{{ invoice.booth.event.name }}</a></td>
+                    </tr>
+                    <tr>
+                        <th>فروشنده:</th>
+                        <td>
+                            {% if invoice.created_by %}
+                                {{ invoice.created_by.get_full_name|default:invoice.created_by.username }}
+                            {% else %}
+                                کیوسک
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>توضیحات:</th>
+                        <td>{{ invoice.description|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i> اقلام فاکتور</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>کد محصول</th>
+                        <th>نام محصول</th>
+                        <th>تعداد</th>
+                        <th>قیمت واحد (تومان)</th>
+                        <th>قیمت کل (تومان)</th>
+                        <th>وضعیت تحویل</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoice.items.all %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ item.product.code }}</td>
+                        <td><a href="{% url 'products:product_detail' item.product.id %}">{{ item.product.name }}</a></td>
+                        <td>{{ item.quantity }} {{ item.product.unit.name|default:"عدد" }}</td>
+                        <td>{{ item.price|floatformat:0|intcomma }}</td>
+                        <td>{{ item.total_price|floatformat:0|intcomma }}</td>
+                        <td>
+                            {% if item.is_delivered %}
+                            <span class="badge bg-success">تحویل شده</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">در انتظار تحویل</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="5" class="text-end">جمع کل:</th>
+                        <th>{{ invoice.subtotal|floatformat:0|intcomma }} تومان</th>
+                        <td></td>
+                    </tr>
+                    {% if invoice.discount_amount %}
+                    <tr>
+                        <th colspan="5" class="text-end">تخفیف:</th>
+                        <th>{% widthratio invoice.discount_amount 100 invoice.subtotal as dis %} {{dis|floatformat:0|intcomma}} تومان({{ invoice.discount_amount|floatformat:0|intcomma }}%) 
+                        </th>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                    {% if invoice.donation_amount %}
+                    <tr>
+                        <th colspan="5" class="text-end">همت عالی:</th>
+                        <th>{{ invoice.donation_amount|floatformat:0|intcomma }} تومان</th>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                    <tr class="table-primary">
+                        <th colspan="5" class="text-end">مبلغ نهایی:</th>
+                        <th>{{ invoice.total_amount|floatformat:0|intcomma }} تومان</th>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-truck me-2"></i> وضعیت تحویل</h5>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ delivery_percentage }}%;" aria-valuenow="{{ delivery_percentage }}" aria-valuemin="0" aria-valuemax="100">{{ delivery_percentage }}%</div>
+                </div>
+                <p class="text-center">تحویل شده: {{ delivered_items_count }} از {{ total_items_count }} آیتم</p>
+                
+                {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+                <form method="post" action="{% url 'invoice_update_delivery' invoice.id %}">
+                    {% csrf_token %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>محصول</th>
+                                    <th>وضعیت تحویل</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in invoice.items.all %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="delivered_items" value="{{ item.id }}" id="delivery-{{ item.id }}" {% if item.is_delivered %}checked{% endif %}>
+                                            <label class="form-check-label" for="delivery-{{ item.id }}">
+                                                {% if item.is_delivered %}تحویل شده{% else %}تحویل نشده{% endif %}
+                                            </label>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> بروزرسانی وضعیت تحویل
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-money-check-alt me-2"></i> وضعیت پرداخت</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert {% if invoice.is_paid %}alert-success{% else %}alert-danger{% endif %}">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            {% if invoice.is_paid %}
+                            <i class="fas fa-check-circle fa-3x"></i>
+                            {% else %}
+                            <i class="fas fa-times-circle fa-3x"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">
+                                {% if invoice.is_paid %}
+                                این فاکتور پرداخت شده است
+                                {% else %}
+                                این فاکتور هنوز پرداخت نشده است
+                                {% endif %}
+                            </h5>
+                            <p class="mb-0">
+                                {% if invoice.is_paid %}
+                                روش پرداخت: {{ invoice.get_payment_method_display }}
+                                {% else %}
+                                مبلغ قابل پرداخت: {{ invoice.total_amount|floatformat:0|intcomma }} تومان
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if user.is_staff or user == invoice.booth.manager or user in invoice.booth.staff.all %}
+                <form method="post" action="{% url 'invoice_update_payment' invoice.id %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_paid" id="is_paid" {% if invoice.is_paid %}checked{% endif %}>
+                            <label class="form-check-label" for="is_paid">
+                                فاکتور پرداخت شده است
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label">روش پرداخت</label>
+                        <select class="form-select" id="payment_method" name="payment_method">
+                            {% for value, label in invoice.PAYMENT_METHODS %}
+                            <option value="{{ value }}" {% if invoice.payment_method == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- بخش آپلود عکس فیش واریزی (فقط برای پرداخت کارتی) -->
+                    <div id="receipt_image_section" class="mb-3" {% if invoice.payment_method != 'card' %}style="display:none;"{% endif %}>
+                        <label for="receipt_image" class="form-label">عکس فیش واریزی</label>
+                        <input type="file" class="form-control" id="receipt_image" name="receipt_image" accept="image/*">
+                        <div class="form-text text-muted">لطفاً تصویر فیش واریزی را آپلود کنید (فقط برای پرداخت کارتی الزامی است)</div>
+                        
+                        {% if invoice.receipt_image %}
+                        <div class="mt-2">
+                            <p>عکس فیش آپلود شده:</p>
+                            <div class="receipt-thumbnail">
+                                <a href="{{ invoice.receipt_image.url }}" data-bs-toggle="modal" data-bs-target="#receiptImageModal">
+                                    <img src="{{ invoice.receipt_image.url }}" alt="فیش واریزی" class="img-thumbnail" style="max-height: 150px;">
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> بروزرسانی وضعیت پرداخت
+                    </button>
+                </form>
+                
+                {% if not invoice.is_paid %}
+                <hr>
+                <div class="mt-3" id="posSection" {% if invoice.payment_method != 'card' %}style="display:none;"{% endif %}>
+                    <h6><i class="fas fa-credit-card me-1"></i> ارسال به دستگاه پوز</h6>
+                    <p class="small text-muted">برای ارسال مبلغ فاکتور به دستگاه پوز، دکمه زیر را کلیک کنید.</p>
+                    <a href="{% url 'send_invoice_to_pos' invoice_id=invoice.id %}" class="btn btn-success" id="sendPosBtn" data-redirect-url="{% url 'invoice_detail' pk=invoice.id %}">
+                        <i class="fas fa-paper-plane me-1"></i> ارسال به دستگاه پوز
+                    </a>
+                    <div id="posErrorBox" class="mt-2 text-danger"></div>
+                </div>
+                {% endif %}
+                {% endif %}
+
+                {% if invoice.pos_rrn or invoice.pos_txn_status or invoice.pos_trace or invoice.pos_terminal or invoice.pos_merchant or invoice.pos_card_mask or invoice.pos_date %}
+                <hr>
+                <div class="mt-3">
+                    <h6><i class="fas fa-receipt me-1"></i> اطلاعات پرداخت</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-borderless mb-0">
+                            <tbody>
+                                {% if invoice.pos_provider %}
+                                <tr>
+                                    <th style="width:180px">نوع پوز</th>
+                                    <td>{{ invoice.pos_provider }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if invoice.pos_rrn %}
+                                <tr>
+                                    <th>مرجع</th>
+                                    <td dir="ltr">{{ invoice.pos_rrn }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if invoice.pos_trace %}
+                                <tr>
+                                    <th>پیگیری</th>
+                                    <td dir="ltr">{{ invoice.pos_trace }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if invoice.pos_txn_status %}
+                                <tr>
+                                    <th>وضعیت تراکنش</th>
+                                    <td dir="ltr">
+                                        {% with code=invoice.pos_txn_status %}
+                                            {% if code == '000' %}موفق{% elif code == '902' %}انصراف کاربر{% elif code == '903' %}پاسخی از کارتخوان دریافت نشد{% elif code == '905' %}تراکنش نامعتبر{% elif code == '911' %}قطع ارتباط با سرور{% else %}{{ code }}{% endif %}
+                                            {% if code %} <span class="text-muted">({{ code }})</span>{% endif %}
+                                        {% endwith %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if invoice.pos_terminal %}
+                                <tr>
+                                    <th>ترمینال</th>
+                                    <td dir="ltr">{{ invoice.pos_terminal }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if invoice.pos_merchant %}
+                                <tr>
+                                    <th>پذیرنده</th>
+                                    <td dir="ltr">{{ invoice.pos_merchant }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if invoice.pos_card_mask %}
+                                <tr>
+                                    <th>کارت (ماسک)</th>
+                                    <td dir="ltr">{{ invoice.pos_card_mask }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if invoice.pos_date %}
+                                <tr>
+                                    <th>تاریخ تراکنش</th>
+                                    <td dir="ltr">
+                                        {% if '/' in invoice.pos_date %}
+                                            {{ invoice.pos_date }}
+                                        {% elif invoice.pos_date|length >= 8 and invoice.pos_date|slice:":2" == '14' %}
+                                            {{ invoice.pos_date|slice:":4" }}/{{ invoice.pos_date|slice:"4:6" }}/{{ invoice.pos_date|slice:"6:8" }}
+                                        {% elif invoice.pos_date|length >= 6 %}
+                                            14{{ invoice.pos_date|slice:":2" }}/{{ invoice.pos_date|slice:"2:4" }}/{{ invoice.pos_date|slice:"4:6" }}
+                                        {% else %}
+                                            {{ invoice.pos_date }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // نمایش یا عدم نمایش بخش آپلود عکس فیش بر اساس روش پرداخت
+    document.addEventListener('DOMContentLoaded', function() {
+        const paymentMethodSelect = document.getElementById('payment_method');
+        const receiptImageSection = document.getElementById('receipt_image_section');
+        const receiptImageInput = document.getElementById('receipt_image');
+        
+        if (paymentMethodSelect && receiptImageSection) {
+            paymentMethodSelect.addEventListener('change', function() {
+                if (this.value === 'card') {
+                    // فقط بخش آپلود را نمایش می‌دهیم اما اجباری نمی‌کنیم
+                    receiptImageSection.style.display = 'block';
+                    receiptImageInput.required = false;
+                } else {
+                    receiptImageSection.style.display = 'none';
+                    receiptImageInput.required = false;
+                }
+            });
+        }
+        var posSection = document.getElementById('posSection');
+        var isPaidCheckbox = document.getElementById('is_paid');
+        function updatePosVisibility(){
+            if(!posSection) return;
+            var method = paymentMethodSelect ? paymentMethodSelect.value : '{{ invoice.payment_method }}';
+            var paid = isPaidCheckbox ? isPaidCheckbox.checked : ('{% if invoice.is_paid %}true{% else %}false{% endif %}' === 'true');
+            posSection.style.display = (!paid && method === 'card') ? 'block' : 'none';
+        }
+        if (paymentMethodSelect) paymentMethodSelect.addEventListener('change', updatePosVisibility);
+        if (isPaidCheckbox) isPaidCheckbox.addEventListener('change', updatePosVisibility);
+        updatePosVisibility();
+        
+        // ارسال مستقیم به پوز با AJAX در حالت تک دستگاه
+        var sendBtn = document.getElementById('sendPosBtn');
+        if(sendBtn){
+            // Waiting modal (reusable)
+            var modalEl = document.getElementById('posWaitingModal');
+            if(!modalEl){
+                var tpl = document.createElement('div');
+                tpl.innerHTML = '\
+<div class="modal fade" id="posWaitingModal" tabindex="-1" aria-labelledby="posWaitingModalLabel" aria-hidden="true">\
+  <div class="modal-dialog modal-dialog-centered">\
+    <div class="modal-content">\
+      <div class="modal-header">\
+        <h5 class="modal-title" id="posWaitingModalLabel">در حال پرداخت</h5>\
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>\
+      </div>\
+      <div class="modal-body d-flex align-items-center">\
+        <div class="spinner-border text-primary me-3" role="status"><span class="visually-hidden">...</span></div>\
+        <div>\
+            <div>در حال ارسال مبلغ به دستگاه پوز، لطفاً کارت را بکشید و منتظر بمانید...</div>\
+            <div class="text-muted small mt-1">تا زمان دریافت پاسخ از دستگاه، این پنجره باز می‌ماند.</div>\
+        </div>\
+      </div>\
+    </div>\
+  </div>\
+</div>';
+                document.body.appendChild(tpl.firstChild);
+            }
+            modalEl = document.getElementById('posWaitingModal');
+            var waitingModal = modalEl ? new bootstrap.Modal(modalEl) : null;
+            function cleanupModal(){
+                try{ if(waitingModal){ waitingModal.hide(); } }catch(e){}
+                document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+            }
+            var errorBox = document.getElementById('posErrorBox');
+            sendBtn.addEventListener('click', function(e){
+                // تلاش برای AJAX؛ اگر پاسخ JSON نبود، به صفحه انتخاب پوز می‌رویم
+                e.preventDefault();
+                if(this.dataset.busy === '1'){ return; }
+                this.dataset.busy = '1';
+                this.classList.add('disabled');
+                this.setAttribute('aria-disabled','true');
+                var originalHTML = this.innerHTML;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> در حال ارسال...';
+                if(errorBox){ errorBox.textContent = ''; }
+                if(waitingModal){ waitingModal.show(); }
+                var href = this.getAttribute('href');
+                var redirectUrl = this.dataset.redirectUrl || window.location.href;
+                var self = this;
+                fetch(href, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+                  .then(function(resp){
+                      // اگر سرور انتخاب پوز برگرداند (HTML)، اجازه دهیم صفحه هدایت شود
+                      var contentType = resp.headers.get('content-type') || '';
+                      if(contentType.indexOf('application/json') === -1){
+                          cleanupModal();
+                          window.location.href = href; // به صفحه انتخاب پوز برو
+                          return Promise.reject('navigate');
+                      }
+                      return resp.text().then(function(t){
+                          var data=null; try{ data = JSON.parse(t); }catch(_e){ data = null; }
+                          return { status: resp.status, data: data };
+                      });
+                  })
+                  .then(function(res){
+                      if(!res) return;
+                      if(res.status>=200 && res.status<300 && res.data && res.data.ok){
+                          cleanupModal();
+                          window.location.href = redirectUrl;
+                      } else {
+                          cleanupModal();
+                          var msg = (res && res.data && res.data.message) ? res.data.message : 'پرداخت ناموفق بود.';
+                          if(errorBox){ errorBox.textContent = msg; }
+                      }
+                  })
+                  .catch(function(err){ if(err==='navigate') return; cleanupModal(); if(errorBox){ errorBox.textContent = 'خطا در ارتباط با دستگاه پوز.'; } })
+                  .finally(function(){ self.dataset.busy='0'; self.classList.remove('disabled'); self.removeAttribute('aria-disabled'); self.innerHTML = originalHTML; });
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block modal %}
+<!-- Waiting Modal for single-POS flow -->
+<div class="modal fade" id="posWaitingModal" tabindex="-1" aria-labelledby="posWaitingModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="posWaitingModalLabel">در حال پرداخت</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body d-flex align-items-center">
+        <div class="spinner-border text-primary me-3" role="status"><span class="visually-hidden">...</span></div>
+        <div>
+            <div>در حال ارسال مبلغ به دستگاه پوز، لطفاً کارت را بکشید و منتظر بمانید...</div>
+            <div class="text-muted small mt-1">تا زمان دریافت پاسخ از دستگاه، این پنجره باز می‌ماند.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- مودال نمایش عکس فیش در اندازه بزرگ -->
+{% if invoice.receipt_image %}
+<div class="modal fade" id="receiptImageModal" tabindex="-1" aria-labelledby="receiptImageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receiptImageModalLabel">عکس فیش واریزی</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img src="{{ invoice.receipt_image.url }}" alt="فیش واریزی" class="img-fluid">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

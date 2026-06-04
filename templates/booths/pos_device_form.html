@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="mb-4">
+        <a href="{% url 'pos_device_list' booth_id=booth.pk %}" class="btn btn-outline-primary mb-3">
+            <i class="fas fa-arrow-right me-1"></i> بازگشت به لیست دستگاه‌های پوز
+        </a>
+        
+        <h1>
+            {% if pos_device %}
+            <i class="fas fa-edit me-2"></i> ویرایش دستگاه پوز {{ pos_device.name }}
+            {% else %}
+            <i class="fas fa-plus me-2"></i> افزودن دستگاه پوز جدید
+            {% endif %}
+        </h1>
+        <p class="text-muted">اطلاعات دستگاه پوز را وارد کنید</p>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i> اطلاعات دستگاه پوز</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> ذخیره
+                    </button>
+                    <a href="{% url 'pos_device_list' booth_id=booth.pk %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i> انصراف
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // نمایش/عدم نمایش فیلدها بر اساس نوع اتصال
+        function toggleConnectionFields() {
+            var connectionType = document.querySelector('select[name="connection_type"]').value;
+            var tcpFields = document.querySelector('.tcp-fields');
+            var serialFields = document.querySelector('.serial-fields');
+            
+            if (connectionType === 'TCP') {
+                tcpFields.style.display = 'block';
+                serialFields.style.display = 'none';
+            } else if (connectionType === 'SERIAL') {
+                tcpFields.style.display = 'none';
+                serialFields.style.display = 'block';
+            } else {
+                tcpFields.style.display = 'none';
+                serialFields.style.display = 'none';
+            }
+        }
+        
+        // اجرای اولیه
+        toggleConnectionFields();
+        
+        // افزودن رویداد برای تغییر نوع اتصال
+        document.querySelector('select[name="connection_type"]').addEventListener('change', toggleConnectionFields);
+    });
+</script>
+{% endblock %}

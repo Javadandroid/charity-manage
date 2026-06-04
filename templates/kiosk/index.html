@@ -1,0 +1,434 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load persian_filters %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    body{background:#f7f7f9; font-size: clamp(14px, 1.1vw, 18px)}
+    .kiosk-container{max-width:100%; padding: clamp(8px, 2vw, 16px); margin-bottom: clamp(20px, 4vh, 56px)}
+    .cart-panel{position:sticky; top:16px; background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06); padding:16px; padding-bottom:24px; max-height:calc(100vh - 80px); display:flex; flex-direction:column}
+    .cart-items{overflow:auto; flex:1; margin-bottom:12px}
+    .product-card{background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06); padding:10px; height:100%; display:flex; flex-direction:column}
+    .product-card img{width:100%; height: clamp(100px, 18vh, 220px); object-fit:cover; border-radius:8px}
+    .btn-add{background:#ff2d86; color:#fff}
+    .btn-add:disabled{background:#aaa; border-color:#aaa}
+    .btn-del{background:#dc3545; color:#fff}
+    .quantity-control{display:flex; align-items:center; gap:8px}
+    .qty-btn{background:#ff2d86; color:#fff; border:none; width: clamp(36px, 5vw, 44px); height: clamp(36px, 5vw, 44px); border-radius:8px; font-weight:700}
+    .qty-btn:active{transform:scale(.98)}
+    .price{font-weight:700}
+    .muted{color:#888}
+    .cart-total{font-size:18px; font-weight:800}
+    .pay-btn{background:#ff2d86; color:#fff; width:100%; padding:12px; font-size: clamp(16px, 2.2vw, 20px); border-radius:8px; position: sticky; bottom: 0}
+    .cart-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
+    .invalid{border-color:#dc3545}
+    .booth-badge{background:#eef2ff; color:#3b5bdb; border-radius:6px; padding:2px 8px; font-size:12px}
+    .disabled-card{opacity:.4; pointer-events:none}
+    .section-title{font-weight:800; margin:8px 0}
+    .booth-bar-wrapper{position:relative}
+    .products-panel{height:calc(100vh - 32px); display:flex; flex-direction:column}
+    .products-scroll{flex:1; overflow:auto}
+    .booth-strip{display:flex; gap:12px; overflow-x:auto; padding: clamp(6px, 3vw, 12px) 48px; direction:ltr}
+    .booth-card{min-width: clamp(120px, 16vw, 160px); max-width: clamp(120px, 16vw, 160px); background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06); text-align:center; cursor:pointer; padding:8px}
+    .booth-card img{width:100%; height:80px; object-fit:cover; border-radius:8px}
+    .booth-card .name{margin-top:6px; font-weight:600; font-size:14px}
+    .booth-card.active{outline:3px solid #0d6efd}
+    .arrow-btn{position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:50%; border:0; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.2); display:flex; align-items:center; justify-content:center; font-size:22px; z-index:2; cursor:pointer}
+    .arrow-right{right:8px}
+    .arrow-left{left:8px}
+    .timer-box{background:#fff; border:1px solid #ddd; border-radius:8px; padding:4px 8px; font-size:12px; color:#444}
+    .timer-global{position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:1000; background:#28a745; color:#fff; border-radius:999px; padding:6px 14px; box-shadow:0 2px 8px rgba(0,0,0,.2); font-weight:600}
+    #numpad{direction:ltr}
+
+    /* Responsive tweaks */
+    @media (max-width: 992px){
+        .cart-panel{ position: static; height: auto; }
+        .products-panel{ height: auto; }
+        .product-card{ padding: 8px; }
+    }
+    @media (max-width: 576px){
+        .product-card img{ height: clamp(100px, 24vh, 200px); }
+        .arrow-btn{ width: 36px; height: 36px; font-size: 18px; }
+    }
+    @media (orientation: landscape) and (max-height: 600px){
+        .product-card img{ height: clamp(80px, 20vh, 160px); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="kiosk-timer-global" class="timer-global" style="display:none"></div>
+<div class="container-fluid kiosk-container">
+    <div class="row g-3">
+        <div class="col-12 col-lg-4 order-2 order-lg-1">
+            <div class="cart-panel">
+                <div class="cart-header">
+                    <div>سبد خرید <span class="muted" id="cart-count">(0)</span></div>
+                    <div class="booth-badge" id="cart-booth-name"></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="muted">قابل پرداخت</div>
+                    <div class="cart-total" id="cart-total">۰ تومان</div>
+                </div>
+                <div class="cart-items" id="cart-items"></div>
+                <div class="mb-2">
+                    <input type="tel" inputmode="numeric" pattern="0[0-9]{10}" maxlength="11" class="form-control" id="customer_phone" dir="ltr" placeholder="0912xxxxxxx">
+                </div>
+                <div id="numpad" class="mb-2" dir="ltr">
+                    <div class="row g-2">
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">1</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">2</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">3</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">4</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">5</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">6</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">7</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">8</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">9</button></div>
+                        <div class="col-4"><button class="btn btn-warning w-100 py-3" id="np-clear">پاک</button></div>
+                        <div class="col-4"><button class="btn btn-light w-100 py-3 num">0</button></div>
+                        <div class="col-4"><button class="btn btn-danger w-100 py-3" id="np-back">⌫</button></div>
+                    </div>
+                </div>
+                <button id="pay-btn" class="btn pay-btn" disabled>ثبت و پرداخت</button>
+                <div class="text-danger mt-2" id="cart-error"></div>
+                <div class="text-success mt-2" id="cart-success"></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-8 order-1 order-lg-2">
+            <div class="products-panel">
+            <div class="mb-2 section-title">غرفه‌ها</div>
+            <div class="booth-bar-wrapper mb-3">
+                <button class="arrow-btn arrow-left" type="button" id="booth-left">›</button>
+                <div class="booth-strip" id="booth-strip">
+                    <div class="booth-card active" data-booth-id="" title="همه غرفه‌ها">
+                        <img src="{{ event_image_url }}" alt="همه غرفه‌ها">
+                        <div class="name">همه</div>
+                    </div>
+                    {% for b in booths %}
+                    <div class="booth-card" data-booth-id="{{ b.id }}" title="{{ b.name }}">
+                        <img src="{{ b.get_image_url }}" alt="{{ b.name }}">
+                        <div class="name">{{ b.name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button class="arrow-btn arrow-right" type="button" id="booth-right">‹</button>
+            </div>
+
+            <div class="mb-2 section-title">محصولات</div>
+            <div class="products-scroll">
+            <div class="row g-2" id="products-grid">
+                {% for p in products %}
+                <div class="col-6 col-md-4 col-lg-3 product-col" data-booth-id="{{ p.booth.id }}">
+                    <div class="product-card" data-product-id="{{ p.id }}" data-price="{{ p.price }}" data-booth-id="{{ p.booth.id }}" data-booth-name="{{ p.booth.name }}">
+                        <img src="{{ p.get_image_url }}" alt="{{ p.name }}">
+                        <div class="mt-2 fw-bold">{{ p.name }}</div>
+                        {% if p.description %}
+                        <div class="muted small">{{ p.description|truncatechars:80 }}</div>
+                        {% endif %}
+                        <div class="d-flex justify-content-between align-items-center mt-auto">
+                            <div class="price">{{ p.price|format_price:"" }}</div>
+                            <button class="btn btn-sm btn-add add-btn">افزودن</button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var cart = [];
+    var lockedBoothId = null;
+    var lockedBoothName = '';
+    var selectedBoothId = '';
+    // Inactivity timer (seconds)
+    var TIMER_TOTAL = Number('{{ KIOSK_INACTIVITY_SECONDS|default:60 }}');
+    var timerId = null;
+    var timerLeft = TIMER_TOTAL;
+    var timerPaused = false;
+
+    function showTimer(on){
+        var el = document.getElementById('kiosk-timer');
+        var g = document.getElementById('kiosk-timer-global');
+        if(el) el.style.display = on ? 'block' : 'none';
+        if(g) g.style.display = on ? 'block' : 'none';
+    }
+    function renderTimer(){
+        var el = document.getElementById('kiosk-timer');
+        var g = document.getElementById('kiosk-timer-global');
+        var txt = 'زمان باقی‌مانده: ' + timerLeft + ' ثانیه';
+        if(el){ el.textContent = txt; }
+        if(g){ g.textContent = txt; }
+        // تغییر رنگ از سبز به قرمز بر اساس نسبت زمان باقی‌مانده
+        var ratio = Math.max(0, Math.min(1, timerLeft / TIMER_TOTAL));
+        var hue = Math.round(120 * ratio); // 120=سبز → 0=قرمز
+        var bg = 'hsl(' + hue + ', 80%, 45%)';
+        if(g){ g.style.backgroundColor = bg; }
+    }
+    function resetTimer(){
+        timerLeft = TIMER_TOTAL; timerPaused = false; showTimer(true); renderTimer();
+        if(timerId){ clearInterval(timerId); }
+        timerId = setInterval(function(){
+            if(timerPaused) return;
+            timerLeft -= 1; if(timerLeft < 0) timerLeft = 0; renderTimer();
+            if(timerLeft === 0){
+                clearInterval(timerId); timerId = null; kioskReset();
+            }
+        }, 1000);
+    }
+    function stopTimer(){ if(timerId){ timerPaused = true; } }
+    function resumeTimer(){ if(timerId){ timerPaused = false; } }
+    function hideTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } showTimer(false); }
+    function kioskReset(){
+        cart = []; lockedBoothId=null; lockedBoothName=''; $('.product-card').removeClass('disabled-card');
+        selectedBoothId=''; $('.booth-card').removeClass('active'); $('.booth-card').first().addClass('active');
+        $('#customer_phone').val('');
+        renderCart(); hideTimer();
+        $('#cart-error').text(''); $('#cart-success').text('');
+        var $btn = $('#pay-btn'); $btn.prop('disabled', true).text($btn.data('old-text')||'ثبت و پرداخت');
+        // نمایش محصولات همه غرفه‌ها
+        $('.product-col').show();
+    }
+    function formatRial(n){ n = parseInt(n||0,10); return n.toLocaleString('fa-IR') + ' تومان'; }
+    function renderCart(){
+        var $items = $('#cart-items');
+        $items.empty();
+        var total = 0; var count = 0;
+        cart.forEach(function(it){
+            var line = it.price * it.quantity; total += line; count += it.quantity;
+            var $row = $('<div class="d-flex align-items-center justify-content-between border-bottom py-2"></div>');
+            var $title = $('<div class="flex-grow-1 me-2 ms-2"></div>').text(it.name);
+            var $qty = $('<div class="quantity-control"></div>');
+            var $minus = $('<button class="qty-btn">-</button>').on('click', function(){ changeQty(it.product_id, -1); });
+            var $qv = $('<span></span>').text(it.quantity);
+            var $plus = $('<button class="qty-btn">+</button>').on('click', function(){ changeQty(it.product_id, +1); });
+            $qty.append($minus, $qv, $plus);
+            var $price = $('<div class="text-nowrap ms-3"></div>').text(formatRial(line));
+            var $del = $('<button class="btn btn-sm btn-del me-2">حذف</button>').on('click', function(){ removeItem(it.product_id); });
+            $row.append($del, $title, $qty, $price);
+            $items.append($row);
+        });
+        $('#cart-total').text(formatRial(total));
+        $('#cart-count').text('(' + count + ')');
+        $('#cart-booth-name').text(lockedBoothName);
+        $('#pay-btn').prop('disabled', !(total>0));
+        // اگر سبد خالی شد، تایمر مخفی شود
+        if(total>0){ if(!timerId) resetTimer(); } else { hideTimer(); }
+    }
+    function changeQty(pid, delta){
+        for(var i=0;i<cart.length;i++){
+            if(cart[i].product_id===pid){ cart[i].quantity += delta; if(cart[i].quantity<=0){ cart.splice(i,1); } break; }
+        }
+        if(cart.length===0){ lockedBoothId = null; lockedBoothName=''; $('.product-card').removeClass('disabled-card'); }
+        renderCart();
+        if(cart.length>0){ resetTimer(); }
+    }
+    function removeItem(pid){ cart = cart.filter(function(it){return it.product_id!==pid}); if(cart.length===0){ lockedBoothId=null; lockedBoothName=''; $('.product-card').removeClass('disabled-card'); } renderCart(); if(cart.length>0){ resetTimer(); } }
+    function addToCart(card){
+        var pid = parseInt(card.data('product-id'),10);
+        var price = parseInt(card.data('price'),10);
+        var name = card.find('.fw-bold').text();
+        var boothId = parseInt(card.data('booth-id'),10);
+        var boothName = card.data('booth-name');
+        if(lockedBoothId && lockedBoothId !== boothId){ return; }
+        lockedBoothId = boothId; lockedBoothName = boothName;
+        $('.product-card').each(function(){ if(parseInt($(this).data('booth-id'),10)!==lockedBoothId){ $(this).addClass('disabled-card'); }});
+        var existing = cart.find(function(it){return it.product_id===pid});
+        if(existing){ existing.quantity += 1; } else { cart.push({product_id: pid, name: name, price: price, quantity: 1}); }
+        renderCart();
+        resetTimer();
+    }
+    $('.add-btn').on('click', function(){ addToCart($(this).closest('.product-card')); });
+
+    function applyBoothFilter(){
+        var bid = selectedBoothId;
+        if(bid===''){ $('.product-col').show(); if(cart.length===0){ lockedBoothId=null; lockedBoothName=''; $('.product-card').removeClass('disabled-card'); } }
+        else {
+            $('.product-col').each(function(){
+                var pb = parseInt($(this).data('booth-id'),10);
+                if(pb===parseInt(bid,10)) $(this).show(); else $(this).hide();
+            });
+            // اگر سبد خالی است، فقط فیلتر انجام شود و قفل نکنیم
+            if(cart.length===0){ $('.product-card').removeClass('disabled-card'); }
+        }
+        renderCart();
+    }
+    $('#booth-strip').on('click', '.booth-card', function(){
+        $('.booth-card').removeClass('active');
+        $(this).addClass('active');
+        selectedBoothId = $(this).data('booth-id').toString();
+        applyBoothFilter();
+    });
+    $('#booth-left').on('click', function(){ var sc = document.getElementById('booth-strip'); sc.scrollBy({left: -300, behavior: 'smooth'}); });
+    $('#booth-right').on('click', function(){ var sc = document.getElementById('booth-strip'); sc.scrollBy({left: 300, behavior: 'smooth'}); });
+    // numpad handlers
+    $('#numpad').on('click', '.num', function(){
+        var $inp = $('#customer_phone');
+        var v = ($inp.val()||'');
+        if(v.length>=11) return;
+        $inp.val(v + $(this).text()).trigger('input');
+    });
+    $('#np-back').on('click', function(){ var $inp=$('#customer_phone'); var v=$inp.val()||''; if(v.length>0){ $inp.val(v.substring(0, v.length-1)).trigger('input'); }});
+    $('#np-clear').on('click', function(){ $('#customer_phone').val('').trigger('input'); });
+    // reset timer on any phone typing (حتی اگر سبد خالی باشد)
+    $('#customer_phone').on('input', function(){ resetTimer(); });
+    // ایجاد اوورلی پرداخت
+    var $overlay = $('<div id="pay-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2000;">\
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">\
+            <div style="background:#fff; border-radius:16px; padding:24px 28px; max-width:540px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,.25)">\
+                <div style="font-size:22px; font-weight:800; margin-bottom:8px;">لطفاً کارت خود را در دستگاه پوز سمت راست بکشید</div>\
+                <div class="text-muted" style="margin-bottom:16px;">تا پایان عملیات، لطفاً صبر کنید...</div>\
+                <div class="arrow-anim" style="font-size:64px; color:#0d6efd;">➜</div>\
+            </div>\
+        </div>\
+    </div>');
+    $('body').append($overlay);
+    var arrowTimer = null;
+    function overlayShow(){
+        $('#pay-overlay').fadeIn(150);
+        var $a = $('#pay-overlay .arrow-anim');
+        var dx = 0, dir = 1;
+        arrowTimer = setInterval(function(){ dx += dir*4; if(dx>24||dx<0) dir*=-1; $a.css('transform','translateX('+dx+'px)'); }, 50);
+    }
+    function overlayHide(){ $('#pay-overlay').fadeOut(100); if(arrowTimer){ clearInterval(arrowTimer); arrowTimer=null; } }
+
+    // نام رویداد برای فیش چاپی از کانتکست جنگو
+    var EVENT_NAME = "{{ event_name|default:''|escapejs }}";
+
+    // چاپ فیش حرارتی 8cm با استفاده از window.open (ساده و سازگار)
+    function printReceipt(invNo){
+        try {
+            var boothName = lockedBoothName || '';
+            var phoneStr = ($('#customer_phone').val()||'').trim();
+            var hourStr = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', hour12: false });
+            function cleanInv(s){
+                if(!s) return '';
+                var digits = String(s).replace(/\D/g,'');
+                var trimmed = digits.replace(/^0+/, '');
+                return trimmed || digits;
+            }
+            var invNoClean = cleanInv(invNo);
+            var totalAmount = 0;
+            function fmtRial(n){ n = parseInt(n||0,10); return n.toLocaleString('fa-IR') + ' تومان'; }
+            var itemsHtml = '';
+            (cart||[]).forEach(function(it){
+                var line = (parseInt(it.price,10)||0) * (parseInt(it.quantity,10)||0);
+                totalAmount += line;
+                var name = (it.name||'');
+                itemsHtml += '<div class="row"><div>' + name + ' × ' + it.quantity + '</div><div class="num">' + fmtRial(line) + '</div></div>';
+            });
+            var html = '<!doctype html><html><head><meta charset="utf-8">'
+                + '<title>رسید</title>'
+                + '<link rel="stylesheet" href="/static/libs/vazirmatn/Vazirmatn-font-face.css">'
+                + '<style>@page{size:80mm auto;margin:0}html,body{width:80mm;margin:0;padding:0}body{font-family:\'Vazirmatn\', sans-serif;direction:rtl;padding:4mm 3mm;font-size:13px;color:#000} .center{text-align:center} .title{font-weight:800;font-size:15px;margin-bottom:2mm} .event{font-size:13px;color:#333;margin-bottom:2mm} .row{display:flex;justify-content:space-between;align-items:flex-start;margin:1mm 0} .row div:first-child{max-width:62%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .row div:last-child{max-width:36%;text-align:left} .hr{border-top:1px dashed #999;margin:2mm 0} .small{font-size:11px;color:#555} .num{font-family:\'Vazirmatn\', sans-serif; direction:ltr; font-size:13px} .total{margin-top:1mm} .total .num{font-size:16px; font-weight:800} .total div:first-child{font-weight:700}</style>'
+                + '</head><body>'
+                + '<div class="center title">' + (boothName||'') + '</div>'
+                + (EVENT_NAME ? ('<div class="center event">' + EVENT_NAME + '</div>') : '')
+                + '<div class="row"><div>فاکتور:</div><div class="num">' + (invNoClean||'') + '</div></div>'
+                + '<div class="row"><div>تماس:</div><div class="num">' + (phoneStr||'') + '</div></div>'
+                + '<div class="row"><div>ساعت:</div><div class="num">' + hourStr + '</div></div>'
+                + '<div class="hr"></div>'
+                + itemsHtml
+                + '<div class="hr"></div>'
+                + '<div class="row total"><div>جمع</div><div class="num">' + fmtRial(totalAmount) + '</div></div>'
+                + '<div class="center small" style="margin-top:3mm">سپاس از همراهی شما</div>'
+                + '</body></html>';
+            var win = window.open('', 'PRINT', 'width=480,height=640');
+            if(!win){ return; }
+            win.document.open();
+            win.document.write(html);
+            win.document.close();
+            win.focus();
+            // چاپ فوری؛ با گزینه A (kiosk-printing) بدون دیالوگ انجام می‌شود
+            win.print();
+            // بستن پنجره پس از چاپ
+            setTimeout(function(){ try{ win.close(); }catch(e){} }, 500);
+        } catch(e) {
+            // اگر خطایی رخ دهد، بی‌صدا ادامه می‌دهیم تا جریان کاربر مختل نشود
+        }
+    }
+
+    $('#pay-btn').on('click', function(){
+        $('#cart-error').text(''); $('#cart-success').text('');
+        var phone = ($('#customer_phone').val()||'').trim();
+        var phoneValid = /^0\d{10}$/.test(phone);
+        if(!phoneValid){ $('#customer_phone').addClass('invalid'); $('#cart-error').text('شماره موبایل نامعتبر است.'); return; }
+        $('#customer_phone').removeClass('invalid');
+        if(cart.length===0){ $('#cart-error').text('سبد خرید خالی است.'); return; }
+        var $btn = $('#pay-btn');
+        if($btn.prop('disabled')){ return; }
+        $btn.prop('disabled', true).data('old-text', $btn.text()).text('در حال پرداخت...');
+        stopTimer();
+        overlayShow();
+        var payload = { cart: JSON.stringify(cart.map(function(it){return it.product_id? {product_id: it.product_id, quantity: it.quantity}: it;})), customer_phone: phone };
+        $.ajax({ url: '/kiosk/checkout/', method: 'POST', data: payload })
+            .done(function(res){
+                overlayHide();
+                 // چاپ فیش ۸ سانتی به‌صورت خودکار پس از موفقیت
+                 try {
+                     var invNo = (res.invoice_number || '');
+                     printReceipt(invNo);
+                 } catch(e) {}
+                 // نمایش مودال موفقیت با شماره سفارش و ریست خودکار بعد از 20 ثانیه
+                  try {
+                      var invNo = (res.invoice_number || '');
+                      // نمایش شماره فاکتور در مودال فقط به‌صورت عدد (حذف inv و صفرهای ابتدایی)
+                      try {
+                          var invClean = String(invNo).replace(/\D/g,'');
+                          invClean = invClean.replace(/^0+/, '');
+                          $('#successModalInvoice').text(invClean || invNo);
+                      } catch(e) {
+                          $('#successModalInvoice').text(invNo);
+                      }
+                      var modalEl = document.getElementById('successModal');
+                      var bsModal = new bootstrap.Modal(modalEl);
+                      bsModal.show();
+                     var left = 20;
+                     var lbl = document.getElementById('successModalCountdown');
+                     lbl.textContent = left;
+                     var t = setInterval(function(){ left -= 1; if(left<0) left=0; lbl.textContent = left; if(left===0){ clearInterval(t); bsModal.hide(); kioskReset(); } }, 1000);
+                     modalEl.addEventListener('hidden.bs.modal', function(){ try{ clearInterval(t); }catch(e){} kioskReset(); }, { once: true });
+                 } catch(e) {
+                     // fallback به رفتار قبلی
+                     cart = []; lockedBoothId=null; lockedBoothName=''; $('.product-card').removeClass('disabled-card'); renderCart(); hideTimer();
+                 }
+            })
+            .fail(function(xhr){
+                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'خطای نامشخص';
+                $('#cart-error').text(msg);
+                // در خطا، دکمه دوباره فعال شود
+                $btn.prop('disabled', false).text($btn.data('old-text'));
+                resumeTimer();
+                overlayHide();
+            });
+    });
+})();
+</script>
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="successModalLabel">سفارش ثبت شد</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>ممنون از سفارش شما. لطفا برای تهیه محصول فیش خود را به غرفه مورد نظر ارائه دهید.</p>
+        <p class="fw-bold">شماره سفارش: <span id="successModalInvoice"></span></p>
+        <p class="text-muted small">این پنجره تا <span id="successModalCountdown">20</span> ثانیه دیگر بسته می‌شود.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+      </div>
+    </div>
+  </div>
+ </div>
+{% endblock %}

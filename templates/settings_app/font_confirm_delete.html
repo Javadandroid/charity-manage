@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'font_list' %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-right me-1"></i> بازگشت به لیست فونت‌ها
+    </a>
+    
+    <h1><i class="fas fa-trash me-2"></i> حذف فونت</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i> تأیید حذف</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <p>
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        آیا مطمئن هستید که می‌خواهید فونت <strong>{{ font.name }}</strong> را حذف کنید؟
+                    </p>
+                    <p class="mb-0">این عمل قابل بازگرداندن نیست!</p>
+                </div>
+                
+                <div class="card my-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">اطلاعات فونت</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>نام فونت:</strong> {{ font.name }}</p>
+                                <p><strong>نوع فونت:</strong> {{ font.get_font_type_display }}</p>
+                                <p><strong>وضعیت:</strong> 
+                                    {% if font.is_active %}
+                                    <span class="badge bg-success">فعال</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">غیرفعال</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>تاریخ ایجاد:</strong> {{ font.created_at|date:"Y/m/d" }}</p>
+                                <p><strong>آخرین بروزرسانی:</strong> {{ font.updated_at|date:"Y/m/d" }}</p>
+                                <p><strong>نمونه فونت:</strong>
+                                    <span style="font-family: '{{ font.name }}', 'Vazir', sans-serif;">سلام دنیا!</span>
+                                </p>
+                            </div>
+                        </div>
+                        {% if font.description %}
+                        <div class="mt-2">
+                            <p><strong>توضیحات:</strong></p>
+                            <p class="mb-0">{{ font.description }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-1"></i> حذف فونت
+                        </button>
+                        <a href="{% url 'font_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i> انصراف
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

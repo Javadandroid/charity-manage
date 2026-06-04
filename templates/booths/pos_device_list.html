@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="mb-4">
+        <a href="{% url 'booth_detail' pk=booth.pk %}" class="btn btn-outline-primary mb-3">
+            <i class="fas fa-arrow-right me-1"></i> بازگشت به غرفه {{ booth.name }}
+        </a>
+        
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h1><i class="fas fa-credit-card me-2"></i> دستگاه‌های پوز غرفه {{ booth.name }}</h1>
+                <p class="text-muted">از این صفحه می‌توانید دستگاه‌های پوز متصل به غرفه را مدیریت کنید</p>
+            </div>
+            
+            <a href="{% url 'pos_device_create' booth_id=booth.pk %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i> افزودن دستگاه پوز جدید
+            </a>
+        </div>
+    </div>
+    
+    {% if pos_devices %}
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i> لیست دستگاه‌های پوز</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>نام دستگاه</th>
+                            <th>نوع دستگاه</th>
+                            <th>بانک</th>
+                            <th>نوع اتصال</th>
+                            <th>وضعیت</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pos in pos_devices %}
+                        <tr>
+                            <td>{{ pos.name }}</td>
+                            <td>{{ pos.get_device_type_display }}</td>
+                            <td>{{ pos.get_bank_display }}</td>
+                            <td>{{ pos.get_connection_type_display }}</td>
+                            <td>
+                                {% if pos.is_active %}
+                                <span class="badge bg-success">فعال</span>
+                                {% else %}
+                                <span class="badge bg-danger">غیرفعال</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'pos_device_update' pk=pos.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i> ویرایش
+                                    </a>
+                                    <a href="{% url 'pos_device_delete' pk=pos.pk %}" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i> حذف
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i> هنوز هیچ دستگاه پوزی برای این غرفه تعریف نشده است. برای افزودن دستگاه پوز جدید، روی دکمه "افزودن دستگاه پوز جدید" کلیک کنید.
+    </div>
+    {% endif %}
+    
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> اطلاعات اتصال به دستگاه پوز</h5>
+        </div>
+        <div class="card-body">
+            <p>برای اتصال به دستگاه پوز Verifone VX520 بانک سامان، یکی از روش‌های زیر را می‌توانید انتخاب کنید:</p>
+            <ul>
+                <li><strong>اتصال TCP/IP:</strong> نیازمند تنظیم آدرس IP و پورت دستگاه می‌باشد.</li>
+                <li><strong>اتصال از طریق پورت سریال:</strong> نیازمند تعیین نام پورت (مثلاً COM1) و نرخ باد (معمولاً 9600) می‌باشد.</li>
+            </ul>
+            <p>برای دریافت اطلاعات دقیق، با پشتیبانی دستگاه پوز یا بانک ارائه‌دهنده تماس بگیرید.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // در صورت نیاز به اسکریپت‌های اضافه
+</script>
+{% endblock %}

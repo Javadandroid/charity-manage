@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'event_detail' event.id %}" class="btn btn-outline-primary mb-3">
+        <i class="fas fa-arrow-left me-1"></i> بازگشت به جزئیات رویداد
+    </a>
+    
+    <h1><i class="fas fa-chart-bar me-2"></i> داشبورد رویداد {{ event.name }}</h1>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">کل فروش</h6>
+                        <h2 class="mb-0" dir="ltr">{{ total_revenue|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-money-bill-wave fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">مجموع همت عالی</h6>
+                        <h2 class="mb-0" dir="ltr">{{ total_donations|floatformat:0|intcomma }} تومان</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-hand-holding-heart fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">تعداد غرفه‌ها</h6>
+                        <h2 class="mb-0" dir="ltr">{{ event.booths.count|intcomma }}</h2>
+                    </div>
+                    <div>
+                        <i class="fas fa-store fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">بازه زمانی</h6>
+                        <h5 class="mb-0">{{ event.start_date|date:"Y/m/d" }} تا {{ event.end_date|date:"Y/m/d" }}</h5>
+                    </div>
+                    <div>
+                        <i class="fas fa-calendar-alt fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i> فروش به تفکیک غرفه</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="boothSalesChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i> غرفه‌های پرفروش</h5>
+            </div>
+            <div class="card-body">
+                {% if booth_sales %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>نام غرفه</th>
+                                <th>مبلغ فروش</th>
+                                <th>تعداد فاکتور</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for booth in booth_sales %}
+                            <tr>
+                                <td>{{ booth.name }}</td>
+                                <td>{{ booth.sales|floatformat:0|intcomma }} تومان</td>
+                                <td>{{ booth.invoice_count }}</td>
+                                <td>
+                                    <a href="{% url 'booth_detail' booth.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'booth_dashboard' booth.id %}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    هنوز هیچ فروشی برای این رویداد ثبت نشده است.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // دریافت داده‌های آماری از API
+        fetch('{% url "event_stats_api" event.id %}')
+            .then(response => response.json())
+            .then(data => {
+                // نمودار فروش به تفکیک غرفه
+                const boothSalesData = data.booth_sales;
+                if (boothSalesData && boothSalesData.length > 0) {
+                    const ctx = document.getElementById('boothSalesChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: boothSalesData.map(item => item.name),
+                            datasets: [{
+                                label: 'فروش (تومان)',
+                                data: boothSalesData.map(item => item.total),
+                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                borderColor: 'rgb(54, 162, 235)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value.toLocaleString('fa-IR') + ' تومان';
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'مقایسه فروش غرفه‌ها'
+                                }
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => console.error('Error loading stats:', error));
+    });
+</script>
+{% endblock %}
