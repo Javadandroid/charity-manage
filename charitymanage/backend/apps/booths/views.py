@@ -1,44 +1,49 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 from .models import Booth, POSDevice
 from .serializers import BoothSerializer, POSDeviceSerializer
-from .services import POSService
+from .services.pos_service import send_to_pos
+from apps.invoices.models import Invoice
 
 class BoothViewSet(viewsets.ModelViewSet):
-    queryset = Booth.objects.all()
     serializer_class = BoothSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
     
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [AllowAny()]
-        return [IsAdminUser()]
+    def get_queryset(self):
+        queryset = Booth.objects.all()
+        event_id = self.request.query_params.get('event')
+        if event_id:
+            queryset = queryset.filter(event_id=event_id)
+        return queryset
 
 class POSDeviceViewSet(viewsets.ModelViewSet):
     queryset = POSDevice.objects.all()
     serializer_class = POSDeviceSerializer
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [AllowAny()]
-        return [IsAdminUser()]
-        
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def send_amount(self, request, pk=None):
+    permission_classes = [IsAdminUser]
+
+    @action(detail=True, methods=['post'], url_path='send-payment', permission_classes=[IsAuthenticatedOrReadOnly])
+    def send_payment(self, request, pk=None):
         pos_device = self.get_object()
         amount = request.data.get('amount')
+        invoice_id = request.data.get('invoice_id')
         
         if not amount:
-            return Response({'error': 'Amount is required'}, status=400)
+            return Response({"detail": "مبلغ (amount) الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
             
-        if pos_device.connection_type == 'TCP':
-            success, message = POSService.send_to_pos_tcp(pos_device, amount)
-        elif pos_device.connection_type == 'SERIAL':
-            success, message = POSService.send_to_pos_serial(pos_device, amount)
-        else:
-            success, message = False, 'Unsupported connection type'
-            
+        success, error_msg = send_to_pos(pos_device, amount)
+
         if success:
-            return Response({'success': True, 'message': 'Amount sent successfully'})
-        return Response({'success': False, 'message': message}, status=400)
+            if invoice_id:
+                try:
+                    invoice = Invoice.objects.get(pk=invoice_id)
+                    invoice.is_paid = True
+                    invoice.payment_method = 'card'
+                    invoice.pos_provider = pos_device.bank
+                    invoice.save()
+                except Invoice.DoesNotExist:
+                    pass
+            return Response({"detail": "پرداخت با موفقیت انجام شد."}, status=status.HTTP_200_OK)
+        else:
+            return Response({"detail": error_msg}, status=status.HTTP_400_BAD_REQUEST)

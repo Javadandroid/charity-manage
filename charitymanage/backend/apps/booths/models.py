@@ -5,6 +5,7 @@ from apps.events.models import Event
 
 class Booth(models.Model):
     """مدل برای نگهداری اطلاعات غرفه‌های رویداد"""
+
     event = models.ForeignKey(
         Event, 
         related_name='booths', 
@@ -29,9 +30,9 @@ class Booth(models.Model):
     )
     is_active = models.BooleanField(_('فعال است؟'), default=True)
     image = models.ImageField(_('تصویر'), upload_to='booths/', blank=True, null=True)
-    show_in_kiosk = models.BooleanField(_('نمایش داخل کیوسک'), default=False)
     created_at = models.DateTimeField(_('تاریخ ایجاد'), auto_now_add=True)
     updated_at = models.DateTimeField(_('تاریخ بروزرسانی'), auto_now=True)
+    show_in_kiosk = models.BooleanField(_('نمایش داخل کیوسک'), default=False)
 
     class Meta:
         verbose_name = _('غرفه')
@@ -41,9 +42,38 @@ class Booth(models.Model):
     def __str__(self):
         return f"{self.name} - {self.event.name}"
 
+    def total_sales(self):
+        """محاسبه کل فروش غرفه"""
+        from apps.invoices.models import Invoice
+        return Invoice.objects.filter(booth=self).aggregate(
+            total=models.Sum('total_amount')
+        )['total'] or 0
+
+    def total_donations(self):
+        """محاسبه کل کمک‌های خیریه غرفه"""
+        from apps.invoices.models import Invoice
+        return Invoice.objects.filter(booth=self).aggregate(
+            total=models.Sum('donation_amount')
+        )['total'] or 0
+
+    def get_image_url(self):
+        """برگرداندن آدرس تصویر غرفه یا تصویر پیش‌فرض در صورت عدم وجود تصویر"""
+        if self.image and hasattr(self.image, 'url'):
+            return self.image.url
+        return '/static/images/placeholders/booth-placeholder.svg'
+
+    def product_count(self):
+        """تعداد محصولات غرفه"""
+        return self.products.count()
+
+    def get_active_products(self):
+        """دریافت محصولات فعال غرفه"""
+        return self.products.filter(is_available=True)
+
 
 class POSDevice(models.Model):
     """مدل برای نگهداری اطلاعات دستگاه‌های پوز متصل به غرفه‌ها"""
+
     POS_TYPES = (
         ('VERIFONE_VX520', _('Verifone VX520')),
         ('PAXS80', _('PAX S80')),
@@ -51,11 +81,13 @@ class POSDevice(models.Model):
         ('AMP9200', _('AMP 9200')),
         ('OTHER', _('سایر')),
     )
+
     CONNECTION_TYPES = (
         ('TCP', _('TCP/IP')),
         ('SERIAL', _('پورت سریال')),
         ('USB', _('USB')),
     )
+
     BANK_TYPES = (
         ('SAMAN', _('سامان')),
         ('MELLAT', _('ملت')),
@@ -75,10 +107,13 @@ class POSDevice(models.Model):
     device_type = models.CharField(_('نوع دستگاه'), max_length=20, choices=POS_TYPES, default='VERIFONE_VX520')
     connection_type = models.CharField(_('نوع اتصال'), max_length=10, choices=CONNECTION_TYPES, default='TCP')
     bank = models.CharField(_('بانک'), max_length=10, choices=BANK_TYPES, default='SAMAN')
+
     ip_address = models.CharField(_('آدرس IP'), max_length=15, blank=True, null=True)
     port = models.PositiveIntegerField(_('پورت'), blank=True, null=True, default=8583)
+
     serial_port = models.CharField(_('پورت سریال'), max_length=20, blank=True, null=True, help_text=_('مثال: COM1'))
     baud_rate = models.PositiveIntegerField(_('نرخ باد'), blank=True, null=True, default=9600)
+
     terminal_id = models.CharField(_('شناسه ترمینال'), max_length=50, blank=True, null=True)
     merchant_id = models.CharField(_('شناسه پذیرنده'), max_length=50, blank=True, null=True)
     is_active = models.BooleanField(_('فعال است؟'), default=True)

@@ -20,3 +20,33 @@ class Event(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if self.is_active:
+            # deactivate other events
+            Event.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    def get_active_booths(self):
+        """گرفتن تمام غرفه‌های فعال برای این رویداد"""
+        return self.booths.filter(is_active=True)
+
+    def get_image_url(self):
+        """برگرداندن آدرس تصویر رویداد یا تصویر پیش‌فرض در صورت عدم وجود تصویر"""
+        if self.image and hasattr(self.image, 'url'):
+            return self.image.url
+        return '/static/images/placeholders/event-placeholder.svg'
+
+    def total_revenue(self):
+        """محاسبه کل درآمد رویداد"""
+        from apps.invoices.models import Invoice
+        return Invoice.objects.filter(booth__event=self).aggregate(
+            total=models.Sum('total_amount')
+        )['total'] or 0
+
+    def total_donations(self):
+        """محاسبه مجموع همت عالی رویداد"""
+        from apps.invoices.models import Invoice
+        return Invoice.objects.filter(booth__event=self).aggregate(
+            total=models.Sum('donation_amount')
+        )['total'] or 0

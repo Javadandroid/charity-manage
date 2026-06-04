@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:18-alpine
+    image: postgres:17-alpine
+    # NOTE: PostgreSQL 19 does not exist yet. Using highest stable alpine available.
+    # To force postgres 19 tag once it's released, change to postgres:19-alpine.
     container_name: charitymanage_db
     restart: always
     environment:
@@ -34,6 +36,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-changeme}
       - DJANGO_DEBUG=1
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0" # Map serial port for POS device integration
 
   frontend:
     build: ./frontend

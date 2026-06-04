@@ -1,27 +1,18 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Estedad", "Vazirmatn", "Inter", sans-serif;
-  --color-primary: #0d6efd;
-  --color-secondary: #6c757d;
-  --color-background: #f8f9fa;
-}
-
-@font-face {
-  font-family: 'Estedad';
-  src: url('/fonts/Estedad-Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Estedad';
-  src: url('/fonts/Estedad-Bold.woff2') format('woff2');
-  font-weight: bold;
-  font-style: normal;
-}
-
-body {
-  @apply font-sans bg-background text-slate-800 antialiased;
-  direction: rtl;
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #1f2937;
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+  }
 }

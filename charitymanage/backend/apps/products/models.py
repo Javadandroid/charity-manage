@@ -1,6 +1,11 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from apps.booths.models import Booth
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from io import BytesIO
+from PIL import Image, ExifTags
+import sys
+import os
 
 class UnitOfMeasure(models.Model):
     """مدل برای واحدهای اندازه‌گیری محصولات"""
@@ -45,3 +50,79 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+    def formatted_price(self):
+        """نمایش قیمت با فرمت مناسب"""
+        return f"{self.price:,} تومان"
+
+    def get_image_url(self):
+        """برگرداندن آدرس تصویر محصول یا تصویر پیش‌فرض در صورت عدم وجود تصویر"""
+        if self.image and hasattr(self.image, 'url'):
+            return self.image.url
+        return '/static/images/placeholders/product-placeholder.svg'
+
+    def process_image(self, image_field):
+        """پردازش تصویر آپلود شده برای استانداردسازی اندازه و کاهش حجم"""
+        if not image_field:
+            return image_field
+
+        file_extension = os.path.splitext(image_field.name)[1]
+        if file_extension.lower() not in ['.jpg', '.jpeg', '.png', '.webp']:
+            return image_field
+
+        img = Image.open(image_field)
+
+        try:
+            for orientation in ExifTags.TAGS.keys():
+                if ExifTags.TAGS[orientation] == 'Orientation':
+                    if hasattr(img, '_getexif') and img._getexif():
+                        exif = dict(img._getexif().items())
+                        if orientation in exif:
+                            if exif[orientation] == 3:
+                                img = img.rotate(180, expand=True)
+                            elif exif[orientation] == 6:
+                                img = img.rotate(270, expand=True)
+                            elif exif[orientation] == 8:
+                                img = img.rotate(90, expand=True)
+                    break
+        except (AttributeError, KeyError, IndexError, TypeError):
+            pass
+
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+
+        width, height = img.size
+        max_size = 800
+        if width > max_size or height > max_size:
+            if width > height:
+                new_width = max_size
+                new_height = int(height * (max_size / width))
+            else:
+                new_height = max_size
+                new_width = int(width * (max_size / height))
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+
+        output = BytesIO()
+        img.save(output, format='JPEG', quality=85, optimize=True)
+        output.seek(0)
+
+        return InMemoryUploadedFile(
+            output,
+            'ImageField',
+            f"{os.path.splitext(image_field.name)[0]}.jpg",
+            'image/jpeg',
+            sys.getsizeof(output),
+            None
+        )
+
+    def save(self, *args, **kwargs):
+        if self.image and hasattr(self.image, 'file') and not self.pk:
+            self.image = self.process_image(self.image)
+        if self.pk:
+            try:
+                old_instance = Product.objects.get(pk=self.pk)
+                if old_instance.image != self.image and self.image:
+                    self.image = self.process_image(self.image)
+            except Product.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
