@@ -52,7 +52,7 @@ export default function Kiosk() {
          await audioRef.current.play();
       } catch (err) {
          console.warn("Audio play failed. Browser policy might block autoplay until user interacts.", err);
-         alert("برای پخش صدا، لطفاً یکبار روی صفحه کلیک کنید.");
+         // Relying on user interaction - typically browsers block autoplay unless interacted with.
       }
     }
   };

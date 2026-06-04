@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/invoices/', include('apps.invoices.urls')),
     path('api/reports/', include('apps.reports.urls')),
     path('api/kiosk/', include('apps.kiosk.urls')),
+    path('api/', include('apps.users.urls')),
 ]
 
 if settings.DEBUG:
