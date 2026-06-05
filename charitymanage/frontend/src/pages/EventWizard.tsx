@@ -106,7 +106,7 @@ export default function EventWizard() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+    <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-8 border-b pb-4">
         <div>
           <h2 className="text-3xl font-black text-gray-800 tracking-tight">ایجاد رویداد جدید</h2>

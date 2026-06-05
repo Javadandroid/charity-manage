@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser, IsAuthenticated
 from .models import Booth, POSDevice
 from .serializers import BoothSerializer, POSDeviceSerializer
 from .services.pos_service import send_to_pos
@@ -9,13 +9,20 @@ from apps.invoices.models import Invoice
 
 class BoothViewSet(viewsets.ModelViewSet):
     serializer_class = BoothSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        user = self.request.user
         queryset = Booth.objects.all()
+
+        # If user is not superuser, filter booths
+        if not user.is_superuser:
+            queryset = queryset.filter(manager=user)
+
         event_id = self.request.query_params.get('event')
         if event_id:
             queryset = queryset.filter(event_id=event_id)
+
         return queryset
 
 class POSDeviceViewSet(viewsets.ModelViewSet):
@@ -23,7 +30,7 @@ class POSDeviceViewSet(viewsets.ModelViewSet):
     serializer_class = POSDeviceSerializer
     permission_classes = [IsAdminUser]
 
-    @action(detail=True, methods=['post'], url_path='send-payment', permission_classes=[IsAuthenticatedOrReadOnly])
+    @action(detail=True, methods=['post'], url_path='send-payment', permission_classes=[IsAuthenticated])
     def send_payment(self, request, pk=None):
         pos_device = self.get_object()
         amount = request.data.get('amount')

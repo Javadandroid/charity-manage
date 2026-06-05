@@ -18,7 +18,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans" dir="rtl">
+    <div className="min-h-screen bg-gray-500 font-sans" dir="rtl">
       <nav className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-4 shadow-lg sticky top-0 z-40">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex space-x-6 space-x-reverse items-center">
@@ -27,6 +27,7 @@ export default function Layout() {
             <Link to="/events" className="hover:text-blue-200 transition">رویدادها</Link>
             <Link to="/booths" className="hover:text-blue-200 transition">غرفه‌ها</Link>
             <Link to="/products" className="hover:text-blue-200 transition">محصولات</Link>
+            <Link to="/invoices" className="hover:text-blue-200 transition">فاکتورها</Link>
             {user?.is_superuser && (
               <Link to="/users" className="hover:text-blue-200 transition">کاربران</Link>
             )}

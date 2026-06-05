@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import axios from '../api';
+import api from '../api';
 
 interface Event {
   id: number;
@@ -22,7 +22,7 @@ export const useEventStore = create<EventStore>((set) => ({
   allEvents: [],
   fetchEvents: async () => {
     try {
-      const response = await axios.get('/api/events/');
+      const response = await api.get('/api/events/');
       const events = response.data;
       const active = events.find((e: Event) => e.is_active);
       set({ allEvents: events, activeEvent: active || null });
