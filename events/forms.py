@@ -1,5 +1,4 @@
 from django import forms
-from django.utils.translation import gettext_lazy as _
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Submit, Row, Column, Div
 from .models import Event
@@ -50,7 +49,7 @@ class EventForm(forms.ModelForm):
             'image',
             'is_active',
             Div(
-                Submit('submit', _('ذخیره'), css_class='btn btn-primary'),
+                Submit('submit', 'ذخیره', css_class='btn btn-primary'),
                 css_class='text-center mt-4'
             )
         )
