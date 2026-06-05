@@ -25,8 +25,8 @@ export default function Users() {
         api.get('/api/users/'),
         api.get('/api/groups/')
       ]);
-      setUsers(userRes.data);
-      setGroups(groupRes.data);
+      setUsers(userRes.data.results || userRes.data);
+      setGroups(groupRes.data.results || groupRes.data);
     } catch (e) {
       console.error(e);
       addToast('خطا در دریافت اطلاعات کاربران', 'error');

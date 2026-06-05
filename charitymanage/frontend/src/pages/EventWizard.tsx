@@ -23,7 +23,7 @@ export default function EventWizard() {
   useEffect(() => {
     if (sourceEventId) {
       api.get(`/api/booths/?event=${sourceEventId}`)
-         .then(res => setSourceBooths(res.data))
+         .then(res => setSourceBooths(res.data.results || res.data))
          .catch(err => console.error(err));
     } else {
       setSourceBooths([]);
@@ -39,11 +39,11 @@ export default function EventWizard() {
     if (exists) {
       setSelectedBooths(selectedBooths.filter(b => b.booth_id !== booth.id));
     } else {
-      api.get(`/api/products/?booth=${booth.id}`).then(res => {
+      api.get(`/api/products/products/?booth=${booth.id}`).then(res => { const data = res.data.results || res.data;
         setSelectedBooths([...selectedBooths, {
           booth_id: booth.id,
           name: booth.name,
-          products: res.data.map((p: any) => ({ product_id: p.id, name: p.name, new_price: p.price, selected: true })),
+          products: data.map((p: any) => ({ product_id: p.id, name: p.name, new_price: p.price, selected: true })),
           pos_devices: booth.pos_devices?.map((pos: any) => pos.id) || []
         }]);
       });

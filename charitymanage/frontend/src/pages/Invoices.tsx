@@ -32,20 +32,20 @@ export default function Invoices() {
 
   useEffect(() => {
     if (selectedBooth) {
-      api.get(`/api/products/?booth=${selectedBooth}`).then(res => setProducts(res.data));
+      api.get(`/api/products/products/?booth=${selectedBooth}`).then(res => setProducts(res.data.results || res.data));
     } else {
       setProducts([]);
     }
   }, [selectedBooth]);
 
   const fetchInvoices = () => {
-    api.get(`/api/invoices/?event=${activeEvent?.id}`)
-       .then(res => setInvoices(res.data))
+    api.get(`/api/invoices/invoices/?event=${activeEvent?.id}`)
+       .then(res => setInvoices(res.data.results || res.data))
        .catch(err => console.error(err));
   };
 
   const fetchBooths = () => {
-    api.get(`/api/booths/?event=${activeEvent?.id}`).then(res => setBooths(res.data));
+    api.get(`/api/booths/?event=${activeEvent?.id}`).then(res => setBooths(res.data.results || res.data));
   };
 
   const handleAddProduct = (productId: number) => {
@@ -65,7 +65,7 @@ export default function Invoices() {
     }
 
     try {
-      await api.post('/api/invoices/checkout/', {
+      await api.post('/api/invoices/invoices/checkout/', {
         booth_id: selectedBooth,
         customer_name: customerName || 'مشتری عبوری',
         items: selectedProducts
