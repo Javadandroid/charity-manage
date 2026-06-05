@@ -1,7 +1,5 @@
 from rest_framework import serializers
 from .models import Event
-from apps.booths.models import Booth, POSDevice
-from apps.products.models import Product
 
 class WizardProductSerializer(serializers.Serializer):
     product_id = serializers.IntegerField()

@@ -211,7 +211,7 @@ def nobat_show(request):
                     try:
                         subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav_path, mp3_path], check=True)
                         audio_rel_url = f"{base_url.rstrip('/')}/nobat/{mp3_name}"
-                    except subprocess.CalledProcessError as e:
+                    except subprocess.CalledProcessError:
                         # اگر تبدیل شکست خورد همان WAV را استفاده می‌کنیم
                         pass
                 payload['audio_url'] = audio_rel_url

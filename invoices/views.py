@@ -1,25 +1,19 @@
 import json
-import uuid
-from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
-from django.http import HttpResponse, JsonResponse
-from django.forms import inlineformset_factory
-from django.db.models import Sum, F, Count, Q, Case, When, IntegerField, Value
-from django.db.models.functions import Coalesce
+from django.http import JsonResponse
+from django.db.models import Sum, F, Count
 from django.db import transaction
 
 
 
 from .models import Invoice, InvoiceItem
-from .forms import InvoiceForm, InvoiceItemForm
+from .forms import InvoiceForm
 from booths.models import Booth
 from products.models import Product
 from django.template.loader import render_to_string
-from django.conf import settings
 
 # Create your views here.
 
@@ -132,7 +126,6 @@ def invoice_list(request):
         invoices_page = paginator.page(paginator.num_pages)
     
     # ایجاد کوئری استرینگ برای پیمایش صفحات با حفظ فیلترها
-    from django.http import QueryDict
     query_dict = request.GET.copy()
     if 'page' in query_dict:
         del query_dict['page']
@@ -422,7 +415,7 @@ def invoice_update(request, pk):
                 # حذف آیتم‌های قبلی
                 try:
                     deleted_items = InvoiceItem.objects.filter(invoice=invoice).delete()
-                except Exception as e:
+                except Exception:
                     # print(f"خطا در حذف آیتم‌های قبلی: {str(e)}")
                     raise
                 
@@ -441,7 +434,7 @@ def invoice_update(request, pk):
                             
                             try:
                                 product = get_object_or_404(Product, pk=product_id)
-                            except Exception as e:
+                            except Exception:
                                 raise
                             
                             # کنترل قیمت
@@ -454,7 +447,7 @@ def invoice_update(request, pk):
                             try:
                                 quantity = int(quantity)
                                 price = int(price)
-                            except (ValueError, TypeError) as e:
+                            except (ValueError, TypeError):
                                 price = int(product.price)
                             
                             try:
@@ -466,9 +459,9 @@ def invoice_update(request, pk):
                                     is_delivered=item_data.get('is_delivered', False)
                                 )
                                 created_items.append(item)
-                            except Exception as ex:
+                            except Exception:
                                 raise
-                        except Exception as item_error:
+                        except Exception:
                             pass
                     
                     # print(f"تعداد آیتم‌های ایجاد شده: {len(created_items)}")
@@ -476,7 +469,7 @@ def invoice_update(request, pk):
                     # بررسی همه آیتم‌های موجود پس از ایجاد
                     try:
                         created_items_data = list(InvoiceItem.objects.filter(invoice=invoice).values('id', 'product__name', 'quantity', 'price'))
-                    except Exception as e:
+                    except Exception:
                         # print(f"خطا در دریافت آیتم‌های جدید: {str(e)}")
                         raise
                     
@@ -485,7 +478,7 @@ def invoice_update(request, pk):
                         invoice.save()
                         messages.success(request, _('فاکتور با موفقیت به‌روزرسانی شد.'))
                         return redirect('invoice_detail', pk=invoice.pk)
-                    except Exception as e:
+                    except Exception:
                         # print(f"خطا در به‌روزرسانی فاکتور: {str(e)}")
                         raise
             else:
@@ -528,7 +521,7 @@ def invoice_update(request, pk):
                     product['image_url'] = p.image.url
                 else:
                     product['image_url'] = ''
-            except Exception as e:
+            except Exception:
                 # print(f"خطا در دریافت تصویر محصول {product['id']}: {str(e)}")
                 product['image_url'] = ''
     
@@ -790,7 +783,6 @@ def print_invoice(request, pk):
 def dashboard(request):
     """داشبورد اصلی با آمار فروش کلی"""
     # ایمپورت‌های مورد نیاز
-    from django.db.models import Count, Sum
     from django.db.models.functions import TruncDate
     from products.models import Product
     import json
@@ -888,10 +880,8 @@ def dashboard(request):
 def dashboard_api(request):
     """API برای گرفتن آمار داشبورد - برای استفاده در نمودارها و به‌روزرسانی خودکار"""
     # ایمپورت‌های مورد نیاز
-    from django.db.models import Count, Sum
     from django.db.models.functions import TruncDate
     from products.models import Product
-    import json
     import jdatetime
     
     # بررسی دسترسی کاربر به داشبورد

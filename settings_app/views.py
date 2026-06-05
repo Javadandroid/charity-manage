@@ -3,9 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
-from django.conf import settings as django_settings
 import os
-import re
 
 from .models import Font, SystemSetting
 from .forms import FontForm, SystemSettingForm

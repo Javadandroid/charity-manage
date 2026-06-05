@@ -1,5 +1,4 @@
 from django import template
-import re
 import jdatetime
 from datetime import datetime
 from django.utils import timezone

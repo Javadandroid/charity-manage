@@ -5,7 +5,8 @@
 # tts.synthesize("سلام دنیا! این یک مثال از تبدیل متن به گفتار فارسی است.", "output.mp3")
 # print("Saved:", "output.mp3")
 
-import os, sys
+import os
+import sys
 import azure.cognitiveservices.speech as speechsdk
 
 key = os.environ.get("AZURE_SPEECH_KEY")

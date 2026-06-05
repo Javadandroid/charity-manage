@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.translation import gettext_lazy as _
@@ -9,7 +9,6 @@ import json
 
 from products.models import Product
 from booths.models import POSDevice, Booth
-from events.models import Event
 from invoices.models import Invoice, InvoiceItem
 
 from booths.views import send_to_pos_tcp, send_to_pos_serial

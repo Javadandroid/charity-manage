@@ -3,7 +3,6 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.models import User
 from apps.booths.models import Booth
 from apps.products.models import Product
-import uuid
 from django.db.models import Sum, F
 from PIL import Image
 import os

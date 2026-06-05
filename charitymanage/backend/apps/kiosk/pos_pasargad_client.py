@@ -108,7 +108,6 @@ import struct
 import hashlib
 import sys
 import json
-import time
 
 FS = 0x1C  # جداکننده فیلدها
 

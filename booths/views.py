@@ -35,7 +35,6 @@ from django.http import JsonResponse
 import socket
 import serial
 import json
-import re
 import requests
 
 from .models import Booth, POSDevice
@@ -266,7 +265,6 @@ def booth_stats_api(request, pk):
     
     # آمار فروش روزانه برای نمودار خطی
     from django.db.models.functions import TruncDate
-    from django.utils.timezone import localtime
     
     sales_trend = Invoice.objects.filter(booth=booth).annotate(
         date=TruncDate('created_at')

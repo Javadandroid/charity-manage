@@ -1,10 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.translation import gettext_lazy as _  # global gettext_lazy
-from django.utils.translation import gettext  # add regular gettext 
-from django.db.models import Sum, Count
+from django.db.models import Sum
 from django.http import JsonResponse, HttpResponse
 import csv
 import io
@@ -242,7 +240,7 @@ def product_bulk_upload(request):
                             is_available=True
                         )
                         products_created += 1
-                    except Exception as e:
+                    except Exception:
                         products_failed += 1
                 
                 messages.success(

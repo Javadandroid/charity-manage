@@ -2,7 +2,6 @@ import socket
 import serial
 import json
 import logging
-import requests
 from django.conf import settings
 from django.utils.translation import gettext as _
 

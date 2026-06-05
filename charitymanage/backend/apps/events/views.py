@@ -8,7 +8,6 @@ from .serializers import EventSerializer
 from .wizard_serializers import EventWizardSerializer
 from apps.booths.models import Booth, POSDevice
 from apps.products.models import Product
-import copy
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
