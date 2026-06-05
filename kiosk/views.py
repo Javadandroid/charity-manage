@@ -130,8 +130,10 @@ def kiosk_checkout(request):
                     invoice.save(update_fields=['pos_provider','pos_rrn','pos_trace','pos_txn_status','pos_terminal','pos_merchant','pos_card_mask','pos_date'])
             except Exception:
                 pass
+            invoice_items = []
             for p, qty, unit_price in line_items:
-                InvoiceItem.objects.create(invoice=invoice, product=p, quantity=qty, price=unit_price)
+                invoice_items.append(InvoiceItem(invoice=invoice, product=p, quantity=qty, price=unit_price))
+            InvoiceItem.objects.bulk_create(invoice_items)
         return JsonResponse({'ok': True, 'message': _('سفارش شما ثبت شد.'), 'invoice_number': invoice.invoice_number})
     except json.JSONDecodeError:
         return JsonResponse({'ok': False, 'message': _('فرمت سبد خرید نامعتبر است.')}, status=400)
