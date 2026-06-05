@@ -29,8 +29,8 @@ export default function Kiosk() {
       // The backend has ?status=ready filtered to `is_paid=True`
       // We will add the related fields (booth_name, etc) in backend or just use customer_name
       // Actually backend InvoiceSerializer doesn't return booth_name by default, we need to handle it.
-      const res = await api.get(`/api/invoices/?event=${activeEvent.id}&status=ready`);
-      const fetchedInvoices: KioskInvoice[] = res.data.map((inv: any) => ({
+      const res = await api.get(`/api/invoices/invoices/?event=${activeEvent.id}&status=ready`);
+      const fetchedInvoices: KioskInvoice[] = ((res.data.results || res.data)).map((inv: any) => ({
         id: inv.id,
         invoice_number: inv.invoice_number,
         customer_name: inv.customer_name,

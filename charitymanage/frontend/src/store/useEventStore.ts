@@ -23,7 +23,7 @@ export const useEventStore = create<EventStore>((set) => ({
   fetchEvents: async () => {
     try {
       const response = await api.get('/api/events/');
-      const events = response.data;
+      const events = response.data.results || response.data;
       const active = events.find((e: Event) => e.is_active);
       set({ allEvents: events, activeEvent: active || null });
     } catch (error) {

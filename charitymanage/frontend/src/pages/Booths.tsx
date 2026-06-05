@@ -21,7 +21,7 @@ export default function Booths() {
 
   const fetchBooths = () => {
     api.get(`/api/booths/?event=${activeEvent?.id}`)
-       .then(res => setBooths(res.data))
+       .then(res => setBooths(res.data.results || res.data))
        .catch(err => console.error(err));
   };
 

@@ -29,10 +29,10 @@ export default function Products() {
   }, [activeEvent]);
 
   const fetchProducts = () => {
-    api.get(`/api/products/?event=${activeEvent?.id}`).then(res => setProducts(res.data));
+    api.get(`/api/products/products/?event=${activeEvent?.id}`).then(res => setProducts(res.data.results || res.data));
   };
   const fetchBooths = () => {
-    api.get(`/api/booths/?event=${activeEvent?.id}`).then(res => setBooths(res.data));
+    api.get(`/api/booths/?event=${activeEvent?.id}`).then(res => setBooths(res.data.results || res.data));
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -42,7 +42,7 @@ export default function Products() {
       return;
     }
     try {
-      await api.post('/api/products/', {
+      await api.post('/api/products/products/', {
         name, code, price, booth: selectedBoothId
       });
       addToast('محصول جدید ثبت شد.', 'success');
@@ -66,7 +66,7 @@ export default function Products() {
     formData.append('file', fileInputRef.current.files[0]);
 
     try {
-      const res = await api.post('/api/products/bulk-upload/', formData, {
+      const res = await api.post('/api/products/products/bulk-upload/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       addToast(res.data.message, 'success');
@@ -80,7 +80,7 @@ export default function Products() {
   const handleDelete = async (id: number) => {
     if (!window.confirm('آیا از حذف این محصول اطمینان دارید؟')) return;
     try {
-      await api.delete(`/api/products/${id}/`);
+      await api.delete(`/api/products/products/${id}/`);
       addToast('محصول با موفقیت حذف شد', 'success');
       fetchProducts();
     } catch (e) {
